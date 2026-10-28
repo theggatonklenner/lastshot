@@ -5,7 +5,7 @@ import { Logo } from "@/components/ui";
 /** Charcoal-and-cream frame for every guest screen, matching the camera. */
 export function GuestShell({ children, cover, accent }: { children: ReactNode; cover?: string | null; accent?: string }) {
   return (
-    <div className="min-h-dvh bg-body text-cream">
+    <div className={`min-h-dvh bg-body text-cream ${cover === undefined ? "pt-[env(safe-area-inset-top)]" : ""}`}>
       {cover !== undefined && (
         <div className="grain relative h-[38dvh] max-h-[420px] min-h-[220px] w-full overflow-hidden" style={{ background: accent ?? "#2546d8" }}>
           {cover && (

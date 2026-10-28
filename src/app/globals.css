@@ -55,6 +55,13 @@
     outline-offset: 2px;
     border-radius: 6px;
   }
+  /* No double-tap zoom delay on controls. */
+  button,
+  a,
+  label,
+  input {
+    touch-action: manipulation;
+  }
   ::selection {
     background: var(--color-flash);
     color: var(--color-ink);

@@ -6,6 +6,7 @@ import { formatDateTime } from "@/lib/format";
 import { Countdown } from "@/components/countdown";
 import { GuestMessage, guestButton } from "@/components/guest/guest-shell";
 import { EmailCapture } from "@/components/guest/email-capture";
+import { AddToHomeHint } from "@/components/guest/add-to-home";
 
 export const metadata: Metadata = { title: "Roll finished", robots: { index: false } };
 
@@ -52,6 +53,11 @@ export default async function DonePage({ params }: PageProps<"/e/[code]/done">) 
         All {shots === 1 ? "1 photo is" : `${shots} photos are`} saved to {event.title}. Nice work.
       </p>
       <p className="mt-3">{galleryLine}</p>
+      {galleryHref && (
+        <div className="mt-6">
+          <AddToHomeHint />
+        </div>
+      )}
       {event.email_capture_enabled && event.gallery_visibility !== "private" && (
         <div className="mt-6">
           <EmailCapture code={code} alreadyOpen={access.allowed && (event.status === "ended" || event.reveal_mode !== "live")} />

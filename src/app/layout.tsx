@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   description:
     "A disposable camera for your event. Guests scan a QR code, shoot a limited roll on their phone, and every photo lands in one shared gallery.",
   applicationName: "Lastshot",
+  // Saved to an iPhone home screen, Lastshot opens full screen like an app.
+  appleWebApp: { capable: true, title: "Lastshot", statusBarStyle: "default" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {

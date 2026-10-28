@@ -35,20 +35,25 @@ export async function processImage(input: Buffer): Promise<ProcessedImage> {
     throw new InvalidImageError("bad_dimensions");
   }
 
-  const base = () => sharp(input, { limitInputPixels: 50_000_000 }).rotate();
-
-  const { data: original, info } = await base()
-    .resize({ width: 3200, height: 3200, fit: "inside", withoutEnlargement: true })
-    .jpeg({ quality: 90, mozjpeg: true })
-    .toBuffer({ resolveWithObject: true });
-  const display = await base()
-    .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
-    .jpeg({ quality: 82, mozjpeg: true })
-    .toBuffer();
-  const thumb = await base()
-    .resize({ width: 480, height: 480, fit: "inside", withoutEnlargement: true })
-    .jpeg({ quality: 72, mozjpeg: true })
-    .toBuffer();
+  // Decode once, then encode the three sizes in parallel.
+  const base = sharp(input, { limitInputPixels: 50_000_000 }).rotate();
+  const [{ data: original, info }, display, thumb] = await Promise.all([
+    base
+      .clone()
+      .resize({ width: 3200, height: 3200, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 90 })
+      .toBuffer({ resolveWithObject: true }),
+    base
+      .clone()
+      .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 82, progressive: true })
+      .toBuffer(),
+    base
+      .clone()
+      .resize({ width: 480, height: 480, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 72, mozjpeg: true })
+      .toBuffer(),
+  ]);
 
   return { original, display, thumb, width: info.width, height: info.height };
 }

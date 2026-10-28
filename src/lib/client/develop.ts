@@ -3,7 +3,8 @@
 import type { CameraTheme } from "@/lib/themes";
 import { canvasToJpeg, fitWithin, sourceSize } from "@/lib/client/image";
 
-const MAX_SIDE = 2400;
+// 2048px is plenty for a disposable-camera look and keeps uploads around 1 MB.
+const MAX_SIDE = 2048;
 const MAX_BYTES = 3.5 * 1024 * 1024;
 
 type Source = HTMLVideoElement | ImageBitmap | HTMLImageElement;
@@ -147,7 +148,7 @@ export async function develop(src: Source, opts: DevelopOptions): Promise<Blob> 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     applyLook(ctx, w, h, opts.theme);
     if (opts.dateStamp) drawStamp(ctx, w, h, opts.when ?? new Date());
-    const blob = await canvasToJpeg(canvas, 0.86);
+    const blob = await canvasToJpeg(canvas, 0.84);
     if (blob.size <= MAX_BYTES) return blob;
     side = Math.round(side * 0.75);
   }

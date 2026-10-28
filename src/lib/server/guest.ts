@@ -124,3 +124,22 @@ export function dbErrorCode(message: string | undefined): string {
   ];
   return known.find((k) => message?.includes(k)) ?? "server_error";
 }
+
+/**
+ * Event and current guest in one round of parallel queries (the upload path is
+ * latency sensitive). The guest is looked up by token hash and then checked
+ * against the event.
+ */
+export async function getEventAndGuest(code: string): Promise<{ event: EventRecord | null; guest: GuestRecord | null }> {
+  if (!EVENT_CODE_RE.test(code)) return { event: null, guest: null };
+  const token = await readGuestToken(code);
+  const [eventRes, guestRes] = await Promise.all([
+    admin().from("events").select("*").eq("code", code).maybeSingle(),
+    token
+      ? admin().from("event_guests").select("*").eq("guest_token_hash", hashToken(token)).limit(5)
+      : Promise.resolve({ data: [] as GuestRecord[] }),
+  ]);
+  const event = eventRes.data;
+  const guest = event ? ((guestRes.data ?? []).find((g) => g.event_id === event.id) ?? null) : null;
+  return { event, guest };
+}

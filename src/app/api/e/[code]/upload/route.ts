@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { admin } from "@/lib/supabase/admin";
-import { dbErrorCode, getEventByCode, getGuestForEvent, rateLimit } from "@/lib/server/guest";
+import { dbErrorCode, getEventAndGuest, rateLimit } from "@/lib/server/guest";
 import { guestError, jsonError } from "@/lib/server/http";
 import { InvalidImageError, MAX_UPLOAD_BYTES, photoPaths, processImage, putObject } from "@/lib/server/media";
 
@@ -24,20 +24,19 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/e/[code]/up
     return jsonError(413, "too_large", "That photo is too large. Try again.");
   }
 
-  const event = await getEventByCode(code);
+  const { event, guest } = await getEventAndGuest(code);
   if (!event || event.status === "draft") return guestError("event_not_found");
-  const guest = await getGuestForEvent(event, code);
   if (!guest) return guestError("guest_not_found");
   if (guest.blocked) return guestError("guest_blocked");
 
-  if (!(await rateLimit(`upload:${guest.id}`, 30, 60))) return guestError("rate_limited");
+  // Read the body and check the rate limit at the same time.
+  const [allowed, form] = await Promise.all([
+    rateLimit(`upload:${guest.id}`, 30, 60),
+    req.formData().catch(() => null),
+  ]);
+  if (!allowed) return guestError("rate_limited");
+  if (!form) return jsonError(400, "bad_request", "The upload was incomplete. Try again.");
 
-  let form: FormData;
-  try {
-    form = await req.formData();
-  } catch {
-    return jsonError(400, "bad_request", "The upload was incomplete. Try again.");
-  }
   const file = form.get("photo");
   const clientUploadId = String(form.get("clientUploadId") ?? "");
   const capturedAtRaw = String(form.get("capturedAt") ?? "");
@@ -56,26 +55,24 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/e/[code]/up
       ? new Date().toISOString()
       : capturedAt.toISOString();
 
-  let processed;
-  try {
-    processed = await processImage(Buffer.from(await file.arrayBuffer()));
-  } catch (e) {
-    if (e instanceof InvalidImageError) {
-      return jsonError(415, "invalid_image", "That file isn't a photo we can use.");
-    }
-    throw e;
-  }
+  // Process the image and claim the shot at the same time.
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const [processedResult, claimResult] = await Promise.all([
+    processImage(bytes).then(
+      (value) => ({ ok: true as const, value }),
+      (error: unknown) => ({ ok: false as const, error }),
+    ),
+    admin().rpc("claim_photo_slot", {
+      p_guest_id: guest.id,
+      p_client_upload_id: clientUploadId,
+      p_captured_at: capturedIso,
+      p_source: source,
+    }),
+  ]);
 
-  const { data: claimRows, error: claimError } = await admin().rpc("claim_photo_slot", {
-    p_guest_id: guest.id,
-    p_client_upload_id: clientUploadId,
-    p_captured_at: capturedIso,
-    p_source: source,
-  });
-  const claim = claimRows?.[0];
-  if (claimError || !claim) {
-    const codeName = dbErrorCode(claimError?.message);
-    return guestError(codeName, {
+  const claim = claimResult.data?.[0];
+  if (claimResult.error || !claim) {
+    return guestError(dbErrorCode(claimResult.error?.message), {
       shotsUsed: guest.photos_submitted,
       shotsLimit: event.photos_per_guest,
     });
@@ -91,11 +88,23 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/e/[code]/up
     });
   }
 
+  if (!processedResult.ok) {
+    // The shot was claimed for a file we can't use, so give it back.
+    await admin().rpc("release_photo_slot", { p_photo_id: claim.photo_id });
+    if (processedResult.error instanceof InvalidImageError) {
+      return jsonError(415, "invalid_image", "That file isn't a photo we can use.");
+    }
+    throw processedResult.error;
+  }
+  const processed = processedResult.value;
+
   const paths = photoPaths(event.id, claim.photo_id);
   try {
-    await putObject(paths.original, processed.original);
-    await putObject(paths.display, processed.display);
-    await putObject(paths.thumb, processed.thumb);
+    await Promise.all([
+      putObject(paths.original, processed.original),
+      putObject(paths.display, processed.display),
+      putObject(paths.thumb, processed.thumb),
+    ]);
     const { error } = await admin().rpc("complete_photo_upload", {
       p_photo_id: claim.photo_id,
       p_storage_path: paths.original,

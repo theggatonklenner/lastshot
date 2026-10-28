@@ -155,7 +155,9 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
             {ownedAddons.map((a) => (
               <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
                 <span className="font-semibold">{a.name}</span>
-                {a.id === "export" ? (
+                {a.id === "setup" ? (
+                  <span className="text-sm text-graphite">We&apos;ll email you to book a time</span>
+                ) : a.id === "export" ? (
                   <Link href={`/dashboard/events/${event.id}/guests`} className="text-sm font-semibold text-cobalt hover:underline">
                     Download guest data
                   </Link>

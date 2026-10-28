@@ -150,6 +150,12 @@ export const ADDONS: AddonInfo[] = [
     blurb: "Download a spreadsheet of guests, their photo counts, contacts who opted in, and answers to up to 3 questions you ask when they join.",
     detail: "Great for brand activations, venues and corporate events.",
   },
+  {
+    id: "setup",
+    name: "Setup call",
+    blurb: "A 15-minute call with us to set the event up together and answer any questions.",
+    detail: "We'll email you within one business day to book a time.",
+  },
 ];
 
 type AddonFlags = {
@@ -160,6 +166,7 @@ type AddonFlags = {
   addon_sms: boolean;
   addon_link?: boolean;
   addon_export?: boolean;
+  addon_setup?: boolean;
 };
 
 /**
@@ -182,6 +189,8 @@ export function addonPrice(addon: Addon, e: { plan: Plan; addon_storage_1y?: boo
       return 900;
     case "export":
       return 900;
+    case "setup":
+      return 2900;
   }
 }
 
@@ -199,6 +208,7 @@ export function hasAddon(e: AddonFlags, addon: Addon) {
     sms: e.addon_sms,
     link: !!e.addon_link,
     export: !!e.addon_export,
+    setup: !!e.addon_setup,
   }[addon];
 }
 

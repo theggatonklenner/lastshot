@@ -66,13 +66,14 @@ type EventRow = {
   custom_slug: string | null;
   film_looks: FilmLookId[];
   addon_export: boolean;
+  addon_setup: boolean;
   lead_questions: LeadQuestion[];
 };
 
 export type FilmLookId = "classic" | "vintage" | "bw" | "warm" | "cool" | "faded" | "true";
 export type LeadQuestion = { id: string; label: string; kind: "text" | "yesno"; required: boolean };
 
-export type Addon = "frame" | "branding" | "storage" | "storage1y" | "sms" | "link" | "export";
+export type Addon = "frame" | "branding" | "storage" | "storage1y" | "sms" | "link" | "export" | "setup";
 
 type SmsRow = {
   id: string;

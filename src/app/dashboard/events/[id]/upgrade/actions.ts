@@ -19,7 +19,7 @@ export type CheckoutState = { error?: string } | undefined;
 const Cart = z.object({
   plan: z.enum(["free", "small", "party", "big", "unlimited"]),
   seats: z.number().int().min(0).max(500),
-  addons: z.array(z.enum(["frame", "branding", "storage", "storage1y", "sms", "link", "export"])).max(7),
+  addons: z.array(z.enum(["frame", "branding", "storage", "storage1y", "sms", "link", "export", "setup"])).max(8),
 });
 
 export type CodeCheck = { ok: true; code: string | null; percent: number; label: string } | { ok: false; error: string };

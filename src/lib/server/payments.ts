@@ -1,6 +1,7 @@
 import "server-only";
 import { admin } from "@/lib/supabase/admin";
 import { copyAccountLogo } from "@/lib/server/branding";
+import { notifySetupCall } from "@/lib/server/setup-call";
 import { getCheckoutSession, type CheckoutSession } from "@/lib/server/stripe";
 
 /**
@@ -21,6 +22,9 @@ export async function fulfilSession(session: CheckoutSession) {
   }
   if (data?.event_id && data.user_id && (data.addon === "branding" || data.addons?.includes("branding"))) {
     await copyAccountLogo(data.user_id, data.event_id).catch(() => {});
+  }
+  if (data?.event_id && data.user_id && (data.addon === "setup" || data.addons?.includes("setup"))) {
+    await notifySetupCall(data.id, data.event_id, data.user_id).catch((e) => console.error("setup call email failed", e));
   }
   return { ok: true as const, payment: data };
 }

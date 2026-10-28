@@ -40,6 +40,18 @@ export default async function SharePage({
           Published. Your event is ready for guests.
         </Notice>
       )}
+      {event.access_code_hash && (
+        <Notice tone="info">
+          {event.access_code ? (
+            <>
+              Guests need the access code <span className="font-mono font-bold">{event.access_code}</span> to join. Tell them
+              at the event or write it on the sign.
+            </>
+          ) : (
+            "Guests need your access code to join. Tell them at the event or write it on the sign."
+          )}
+        </Notice>
+      )}
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
         <ShareTools
           url={url}

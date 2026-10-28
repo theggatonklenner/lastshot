@@ -135,6 +135,11 @@ export async function signOne(path: string | null, expiresIn = 60 * 60): Promise
   return (await signPaths([path], expiresIn))[0];
 }
 
+/** The uncropped cover kept next to the cropped one, so it can be re-cropped later. */
+export function coverOriginalPath(path: string) {
+  return path.replace(/\.jpg$/, ".orig.jpg");
+}
+
 /** Where the watermarked copy of a stored photo lives. */
 export function watermarkedPath(path: string) {
   return path.replace(/\.jpg$/, ".wm.jpg");

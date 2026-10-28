@@ -284,7 +284,8 @@ export function GalleryFields({
   accessCode,
   setAccessCode,
   hasAccessCode,
-}: Props & { accessCode: string; setAccessCode: (v: string) => void; hasAccessCode?: boolean }) {
+  currentCode,
+}: Props & { accessCode: string; setAccessCode: (v: string) => void; hasAccessCode?: boolean; currentCode?: string | null }) {
   return (
     <div className="flex flex-col gap-8">
       <Field label="When do photos appear in the gallery?" error={errors?.reveal_at}>
@@ -361,9 +362,11 @@ export function GalleryFields({
         label="Access code (optional)"
         htmlFor="access_code"
         hint={
-          hasAccessCode
-            ? "A code is set. Enter a new one to change it, or clear it below."
-            : "Guests must enter this before their camera opens. Useful when the QR code might travel beyond the room."
+          hasAccessCode && currentCode
+            ? "Guests enter this before their camera opens. Change it here, or remove it below."
+            : hasAccessCode
+              ? "A code is set, but it was made before codes could be shown here. Type it again (or a new one) and save to see it."
+              : "Guests must enter this before their camera opens. Useful when the QR code might travel beyond the room."
         }
       >
         <Input
@@ -372,7 +375,7 @@ export function GalleryFields({
           onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
           maxLength={32}
           autoComplete="off"
-          placeholder={hasAccessCode ? "Code set" : "e.g. PARTY26"}
+          placeholder={hasAccessCode && !currentCode ? "Code set" : "e.g. PARTY26"}
           className="uppercase"
         />
       </Field>

@@ -133,6 +133,17 @@ export function Wizard({
     });
   }
 
+  /** Skip the paid steps: start on Free (or the pack event chosen) with no add-ons, and go to review. */
+  function skipPaid() {
+    if (step === PLAN_STEP) setPlan(credit?.plan ?? "free");
+    setAddons([]);
+    setMessage(null);
+    start(async () => {
+      const id = await save();
+      if (id) setStep(REVIEW_STEP);
+    });
+  }
+
   function saveDraft() {
     start(async () => {
       const id = await save();
@@ -279,9 +290,16 @@ export function Wizard({
             )}
           </div>
           {step < STEPS.length - 1 ? (
-            <Button type="submit" pending={pending}>
-              {step === ADDON_STEP ? "Continue to review" : "Continue"}
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {(step === PLAN_STEP || step === ADDON_STEP) && (
+                <Button type="button" variant="ghost" onClick={skipPaid} disabled={pending}>
+                  {step === PLAN_STEP ? "Skip, start free" : "Skip add-ons"}
+                </Button>
+              )}
+              <Button type="submit" pending={pending}>
+                {step === ADDON_STEP ? "Continue to review" : "Continue"}
+              </Button>
+            </div>
           ) : (
             <Button type="submit" pending={pending}>
               {total > 0 ? `Publish and pay ${formatPrice(total)}` : "Publish event"}
@@ -350,7 +368,8 @@ export function PlanStep({ plan, setPlan, minPlan }: { plan: Plan; setPlan: (p: 
   return (
     <div className="flex flex-col gap-4">
       <p className="text-graphite">
-        How many guests are coming? Pick a plan now, or start free and upgrade any time, even during the event.
+        How many guests are coming? Pick a plan now, or skip and use it free. You can upgrade any time, even halfway
+        through the event.
       </p>
       <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Plan">
         {PLANS.map((p) => (

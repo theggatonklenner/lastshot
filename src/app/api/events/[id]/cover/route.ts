@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { ownedEventForApi } from "@/lib/server/organiser";
 import { jsonError } from "@/lib/server/http";
-import { InvalidImageError, MAX_UPLOAD_BYTES, processImage, putObject, removeObjects, signOne } from "@/lib/server/media";
+import { InvalidImageError, MAX_UPLOAD_BYTES, coverOriginalPath, processImage, putObject, removeObjects, signOne } from "@/lib/server/media";
 
 export const maxDuration = 30;
 
@@ -16,6 +16,17 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/events/[id]
   const file = form?.get("cover");
   if (!(file instanceof File) || file.size === 0) return jsonError(400, "bad_request", "Choose an image.");
   if (file.size > MAX_UPLOAD_BYTES) return jsonError(413, "too_large", "Use an image under 4 MB.");
+
+  // The browser sends the cropped cover plus, optionally, the full photo so it can be re-cropped later.
+  const originalFile = form?.get("original");
+  let original: Buffer | null = null;
+  if (originalFile instanceof File && originalFile.size > 0 && originalFile.size <= MAX_UPLOAD_BYTES) {
+    try {
+      original = (await processImage(Buffer.from(await originalFile.arrayBuffer()))).original;
+    } catch {
+      original = null;
+    }
+  }
 
   let cover: Buffer;
   try {
@@ -31,17 +42,20 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/events/[id]
 
   const path = `${owned.event.id}/cover/${randomUUID()}.jpg`;
   await putObject(path, cover);
+  if (original) await putObject(coverOriginalPath(path), original).catch(() => {});
   const { error } = await owned.supabase
     .from("events")
     .update({ cover_image_path: path })
     .eq("id", owned.event.id);
   if (error) {
-    await removeObjects([path]);
+    await removeObjects([path, coverOriginalPath(path)]);
     return jsonError(500, "server_error", "The cover didn't save. Try again.");
   }
-  if (owned.event.cover_image_path) await removeObjects([owned.event.cover_image_path]).catch(() => {});
+  if (owned.event.cover_image_path) {
+    await removeObjects([owned.event.cover_image_path, coverOriginalPath(owned.event.cover_image_path)]).catch(() => {});
+  }
 
-  return Response.json({ ok: true, url: await signOne(path) });
+  return Response.json({ ok: true, url: await signOne(path), originalUrl: original ? await signOne(coverOriginalPath(path)) : null });
 }
 
 export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/events/[id]/cover">) {
@@ -50,7 +64,7 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/events/[
   if (!owned) return jsonError(404, "not_found", "Event not found.");
   if (owned.event.cover_image_path) {
     await owned.supabase.from("events").update({ cover_image_path: null }).eq("id", owned.event.id);
-    await removeObjects([owned.event.cover_image_path]).catch(() => {});
+    await removeObjects([owned.event.cover_image_path, coverOriginalPath(owned.event.cover_image_path)]).catch(() => {});
   }
   return Response.json({ ok: true });
 }

@@ -12,6 +12,7 @@ type UploadStatus = "pending" | "complete" | "failed";
 type EventRow = {
   accent_color: string;
   access_code_hash: string | null;
+  access_code: string | null;
   camera_roll_uploads_enabled: boolean;
   code: string;
   cover_image_path: string | null;

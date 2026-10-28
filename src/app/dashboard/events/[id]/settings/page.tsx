@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { requireOwnedEvent } from "@/lib/server/organiser";
-import { signOne } from "@/lib/server/media";
+import { signOne, coverOriginalPath } from "@/lib/server/media";
 import { STATUS_LABEL, galleryRevealed, isPast, retentionUntil } from "@/lib/rules";
 import { Panel } from "@/components/ui";
 import { LifecycleActions } from "../lifecycle";
@@ -18,8 +18,9 @@ export default async function SettingsPage({ params }: PageProps<"/dashboard/eve
   // The viewer is an organiser of this event (checked above), so read the team with the service client
   // (profiles are otherwise private to each user).
   const db = admin();
-  const [coverUrl, logoUrl, { data: members }, { data: invites }] = await Promise.all([
+  const [coverUrl, coverOriginalUrl, logoUrl, { data: members }, { data: invites }] = await Promise.all([
     signOne(event.cover_image_path),
+    signOne(event.cover_image_path ? coverOriginalPath(event.cover_image_path) : null),
     signOne(event.brand_logo_path),
     db.from("event_members").select("user_id").eq("event_id", id),
     db.from("event_invites").select("id, email, expires_at").eq("event_id", id).is("accepted_at", null),
@@ -69,7 +70,7 @@ export default async function SettingsPage({ params }: PageProps<"/dashboard/eve
         coverUrl={coverUrl}
       />
       <TeamPanel eventId={event.id} isOwner={isOwner} people={people} invites={pendingInvites} />
-      <SettingsForm event={event} coverUrl={coverUrl} isOwner={isOwner} />
+      <SettingsForm event={event} coverUrl={coverUrl} coverOriginalUrl={coverOriginalUrl} isOwner={isOwner} />
     </div>
   );
 }

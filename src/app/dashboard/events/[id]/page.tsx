@@ -156,6 +156,21 @@ export default async function EventOverview({ params, searchParams }: PageProps<
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={qr} alt={`QR code for ${url}`} className="w-full rounded-lg border border-line" />
               <p className="text-sm break-all text-graphite">{url}</p>
+              {event.access_code_hash && (
+                <div className="flex items-center justify-between gap-3 rounded-control bg-paper-2 px-3 py-2.5">
+                  <span>
+                    <span className="block text-sm text-graphite">Access code for guests</span>
+                    {event.access_code ? (
+                      <span className="font-mono text-lg font-bold">{event.access_code}</span>
+                    ) : (
+                      <Link href={`/dashboard/events/${id}/settings`} className="text-sm font-semibold text-cobalt hover:underline">
+                        Set it again to see it
+                      </Link>
+                    )}
+                  </span>
+                  {event.access_code && <CopyButton text={event.access_code} label="Copy" />}
+                </div>
+              )}
               <div className="flex flex-wrap gap-2">
                 <CopyButton text={url} label="Copy link" />
                 <LinkButton href={`/dashboard/events/${id}/share`} variant="secondary" size="sm">

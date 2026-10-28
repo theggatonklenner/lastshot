@@ -40,6 +40,7 @@ export default async function AdminEventPage({ params }: PageProps<"/admin/event
     ["Type", eventTypeLabel(event.event_type)],
     ["Date", formatEventDate(event.event_date, event.start_time, event.end_time)],
     ["Code", <span key="c" className="numeric">{event.code}</span>],
+    ["Access code", event.access_code ? <span key="a" className="font-mono">{event.access_code}</span> : event.access_code_hash ? "Set (made before codes were shown)" : "None"],
     ["Created", formatDateTime(event.created_at)],
     ["Plan", event.extra_guests ? `${planInfo(event.plan).name} + ${event.extra_guests} seats` : planInfo(event.plan).name],
     ["Shots per guest", event.bonus_shots ? `${event.photos_per_guest} + ${event.bonus_shots} bonus` : event.photos_per_guest],

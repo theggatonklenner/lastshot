@@ -39,14 +39,16 @@ function toInput(e: EventRecord): EventInputType {
 export function SettingsForm({
   event,
   coverUrl,
+  coverOriginalUrl = null,
   isOwner,
 }: {
   event: EventRecord;
   coverUrl: string | null;
+  coverOriginalUrl?: string | null;
   isOwner: boolean;
 }) {
   const [value, setValue] = useState<EventInputType>(() => toInput(event));
-  const [accessCode, setAccessCode] = useState("");
+  const [accessCode, setAccessCode] = useState(event.access_code ?? "");
   const [message, setMessage] = useState<{ tone: "error" | "success"; text: string } | null>(null);
   const [pending, start] = useTransition();
   const [confirmTitle, setConfirmTitle] = useState("");
@@ -65,10 +67,9 @@ export function SettingsForm({
     start(async () => {
       const res = await updateEvent(event.id, parsed.data);
       if (!res.ok) return setMessage({ tone: "error", text: res.error });
-      if (accessCode) {
+      if (accessCode.trim() && accessCode.trim() !== (event.access_code ?? "")) {
         const codeRes = await saveAccessCode(event.id, accessCode);
         if (!codeRes.ok) return setMessage({ tone: "error", text: codeRes.error });
-        setAccessCode("");
       }
       setMessage({ tone: "success", text: "Settings saved. Photos already taken are unchanged." });
     });
@@ -77,6 +78,7 @@ export function SettingsForm({
   function clearCode() {
     start(async () => {
       const res = await saveAccessCode(event.id, null);
+      if (res.ok) setAccessCode("");
       setMessage(res.ok ? { tone: "success", text: "Access code removed." } : { tone: "error", text: res.error });
     });
   }
@@ -96,7 +98,7 @@ export function SettingsForm({
         </Panel>
         <Panel>
           <h2 className="mb-5 text-xl font-bold">Cover image</h2>
-          <CoverPicker eventId={event.id} initialUrl={coverUrl} accent={value.accent_color} />
+          <CoverPicker eventId={event.id} initialUrl={coverUrl} initialOriginalUrl={coverOriginalUrl} accent={value.accent_color} />
         </Panel>
         <Panel>
           <h2 className="mb-1 text-xl font-bold">The camera</h2>
@@ -122,6 +124,7 @@ export function SettingsForm({
             accessCode={accessCode}
             setAccessCode={setAccessCode}
             hasAccessCode={!!event.access_code_hash}
+            currentCode={event.access_code}
           />
           {event.access_code_hash && (
             <Button type="button" variant="ghost" size="sm" className="mt-3" onClick={clearCode} disabled={pending}>

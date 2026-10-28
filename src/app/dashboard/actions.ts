@@ -37,6 +37,11 @@ function fail(e: unknown): { ok: false; error: string } {
   if (msg.includes("scheduled reveal needs a reveal time")) return { ok: false, error: "Pick when the gallery opens." };
   if (msg.includes("cannot unpublish")) return { ok: false, error: "Guests have already joined, so it can't go back to draft." };
   if (msg.includes("invalid status change")) return { ok: false, error: "That change isn't possible from the event's current state." };
+  // Our own messages are safe to show. Database errors are logged, not shown.
+  if (/violates|column|relation|policy|permission denied|syntax|constraint|JSON|PGRST/i.test(msg)) {
+    console.error("action failed", msg);
+    return { ok: false, error: "That didn't save. Try again, or contact support if it keeps happening." };
+  }
   return { ok: false, error: msg };
 }
 

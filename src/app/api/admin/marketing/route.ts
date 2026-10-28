@@ -1,12 +1,10 @@
 import { assertAdmin } from "@/lib/server/admin-auth";
+import { csvCell } from "@/lib/safety";
 import { admin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
-function csv(v: string | null) {
-  const s = v ?? "";
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
+const csv = csvCell;
 
 /** Everyone who opted in to news and offers and hasn't unsubscribed, as a CSV. */
 export async function GET() {

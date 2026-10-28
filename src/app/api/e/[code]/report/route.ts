@@ -3,7 +3,7 @@ import { after } from "next/server";
 import { z } from "zod";
 import { admin } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/env";
-import { clientIp, getEventByCode, hashIp, hashToken, rateLimit, readGuestToken, readViewPassToken } from "@/lib/server/guest";
+import { clientIp, getEventByCode, getGuestForEvent, hasViewPass, hashIp, hashToken, rateLimit, readViewPassToken } from "@/lib/server/guest";
 import { guestError, jsonError } from "@/lib/server/http";
 import { resolveGalleryViewer } from "@/lib/server/gallery";
 import { emailConfigured, organiserNoticeEmail, sendBatch } from "@/lib/server/email";
@@ -32,10 +32,18 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/e/[code]/re
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return jsonError(400, "bad_request", "Choose a reason.");
 
-  // One report per photo per person: keyed on their camera, their email link, or (public galleries) their network.
-  const identity = (await readGuestToken(code)) ?? (await readViewPassToken(code)) ?? `ip:${hashIp(await clientIp())}:${event.id}`;
+  // One report per photo per person, keyed on a *verified* identity: a real guest of this
+  // event, a valid emailed or texted gallery link, or (public galleries) their network.
+  // A made-up token header can't count as a separate person.
+  const ip = hashIp(await clientIp());
+  const guest = await getGuestForEvent(event, code);
+  const pass = await hasViewPass(event, code);
+  const identity =
+    guest && !guest.blocked ? `guest:${guest.id}` : pass ? `pass:${await readViewPassToken(code)}` : `ip:${ip}:${event.id}`;
   const reporterKey = hashToken(`report:${identity}`);
   if (!(await rateLimit(`report:${reporterKey}`, 20, 3600))) return guestError("rate_limited");
+  // Also limit by network, so lots of new identities from one place can't mass-report.
+  if (!(await rateLimit(`report-ip:${ip}:${event.id}`, 30, 3600))) return guestError("rate_limited");
 
   const { data, error } = await admin().rpc("report_photo", {
     p_photo_id: parsed.data.photoId,

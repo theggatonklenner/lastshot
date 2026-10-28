@@ -108,7 +108,7 @@ type PaymentRow = {
   currency: string;
   stripe_session_id: string;
   stripe_payment_intent: string | null;
-  status: "pending" | "paid" | "expired" | "refunded";
+  status: "pending" | "paid" | "expired" | "refunded" | "failed";
   receipt_email: string | null;
   created_at: string;
   paid_at: string | null;
@@ -120,6 +120,10 @@ type PaymentRow = {
   pack_plan: Exclude<Plan, "free"> | null;
   pack_events: number | null;
   pack_branding: boolean;
+  refunded_cents: number;
+  refunded_at: string | null;
+  disputed_at: string | null;
+  charged_cents: number | null;
 };
 
 export type DiscountKind = "referral" | "reward" | "second_event" | "partner" | "manual";
@@ -486,6 +490,10 @@ export type Database = {
         Returns: { photo_id: string; storage_path: string | null; display_path: string | null; thumbnail_path: string | null; shots_used: number }[];
       };
       add_guest_phone: { Args: { p_guest_id: string; p_phone: string }; Returns: SmsRow };
+      record_payment_refund: {
+        Args: { p_payment_intent: string; p_refunded_cents: number; p_full: boolean; p_dispute?: boolean };
+        Returns: PaymentRow | null;
+      };
       event_wrapped: { Args: { p_event_id: string }; Returns: Json };
       claim_gallery_push: {
         Args: { p_event_id: string | null; p_limit: number };

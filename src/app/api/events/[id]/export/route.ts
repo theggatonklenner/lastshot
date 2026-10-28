@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { csvCell } from "@/lib/safety";
 import { ownedEventForApi } from "@/lib/server/organiser";
 import { jsonError } from "@/lib/server/http";
 import { admin } from "@/lib/supabase/admin";
@@ -6,12 +7,7 @@ import { formatPhone } from "@/lib/phone";
 
 export const dynamic = "force-dynamic";
 
-function csv(v: string | number | null | undefined) {
-  const s = v === null || v === undefined ? "" : String(v);
-  // Stop spreadsheet apps treating answers as formulas.
-  const safe = /^[=+\-@]/.test(s) ? `'${s}` : s;
-  return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
-}
+const csv = csvCell;
 
 /** Every guest with their photo count, contacts and answers (Guest data export add-on). */
 export async function GET(_req: NextRequest, ctx: RouteContext<"/api/events/[id]/export">) {

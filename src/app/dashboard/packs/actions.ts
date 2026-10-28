@@ -7,6 +7,7 @@ import { admin } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/env";
 import { createCheckoutSession, stripeConfigured } from "@/lib/server/stripe";
 import { resolveDiscount } from "@/lib/server/discounts";
+import { closeOlderCheckouts } from "@/lib/server/payments";
 import { recordError } from "@/lib/server/error-log";
 import { PACKS, SCHOOL_PACK, applyDiscount, packPrice, packValue, planInfo, type PackId } from "@/lib/plans";
 
@@ -38,6 +39,7 @@ export async function startPackCheckout(input: z.infer<typeof Pack>): Promise<{ 
   const detail = `${events} ${planInfo(plan).name} events${branding ? " with your branding" : ""}. Saves ${Math.round(saving / 100)} dollars.`;
   const priced = applyDiscount([{ key: "pack", label: name, detail, cents: subtotal }], discount?.percent ?? 0, discount?.code ?? null);
 
+  await closeOlderCheckouts({ userId: user.id, kind: "pack" }).catch(() => {});
   let url: string | null = null;
   try {
     const session = await createCheckoutSession({

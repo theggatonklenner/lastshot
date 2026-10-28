@@ -62,6 +62,7 @@ export type CheckoutSession = {
   payment_status: "paid" | "unpaid" | "no_payment_required";
   status: "open" | "complete" | "expired";
   payment_intent: string | null;
+  amount_total?: number | null;
   customer_details?: { email?: string | null } | null;
   metadata?: Record<string, string>;
 };
@@ -105,6 +106,9 @@ export function createCheckoutSession(p: {
         }),
       ),
       invoice_creation: { enabled: "true" },
+      // Short-lived, so an old tab can't be paid after the event has changed. Rounded to the
+      // 10-minute idempotency window so a double click still gets the same session.
+      expires_at: Math.floor(Date.now() / 600_000) * 600 + 3600,
     },
     p.idempotencyKey,
   );
@@ -153,4 +157,14 @@ export function verifyStripeSignature(payload: string, header: string | null, se
     .filter((kv) => kv.startsWith("v1="))
     .map((kv) => Buffer.from(kv.slice(3), "hex"));
   return sigs.some((s) => s.length === expected.length && timingSafeEqual(s, expected));
+}
+
+/** Closes an unpaid Checkout session so it can't be paid any more. Ignores ones already closed. */
+export async function expireCheckoutSession(id: string) {
+  try {
+    await stripe<CheckoutSession>("POST", `checkout/sessions/${encodeURIComponent(id)}/expire`, {});
+    return true;
+  } catch {
+    return false;
+  }
 }

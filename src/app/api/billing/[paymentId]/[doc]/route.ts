@@ -20,6 +20,8 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/billing/[pa
     .from("payments")
     .select("stripe_session_id, status")
     .eq("id", paymentId)
+    // Invoices and receipts carry the payer's details, so only the person who paid can open them.
+    .eq("user_id", user.id)
     .in("status", ["paid", "refunded"])
     .maybeSingle();
   if (!pay) return jsonError(404, "not_found", "Payment not found.");

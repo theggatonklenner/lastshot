@@ -1,13 +1,11 @@
 import { getUser } from "@/lib/supabase/server";
+import { csvCell } from "@/lib/safety";
 import { jsonError } from "@/lib/server/http";
 import { paymentLabel } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
-function csv(v: string | number | null) {
-  const s = v === null ? "" : String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
+const csv = csvCell;
 
 /** All of the organiser's payments as a CSV, for bookkeeping. */
 export async function GET() {

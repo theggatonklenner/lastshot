@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
+import { admin } from "@/lib/supabase/admin";
 import { ownedEventForApi } from "@/lib/server/organiser";
 import { jsonError } from "@/lib/server/http";
 import { InvalidImageError, MAX_UPLOAD_BYTES, coverOriginalPath, processImage, putObject, removeObjects, signOne } from "@/lib/server/media";
@@ -43,10 +44,8 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/events/[id]
   const path = `${owned.event.id}/cover/${randomUUID()}.jpg`;
   await putObject(path, cover);
   if (original) await putObject(coverOriginalPath(path), original).catch(() => {});
-  const { error } = await owned.supabase
-    .from("events")
-    .update({ cover_image_path: path })
-    .eq("id", owned.event.id);
+  // The path is set by the server after the ownership check above, not by organisers directly.
+  const { error } = await admin().from("events").update({ cover_image_path: path }).eq("id", owned.event.id);
   if (error) {
     await removeObjects([path, coverOriginalPath(path)]);
     return jsonError(500, "server_error", "The cover didn't save. Try again.");
@@ -63,7 +62,7 @@ export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/events/[
   const owned = await ownedEventForApi(id);
   if (!owned) return jsonError(404, "not_found", "Event not found.");
   if (owned.event.cover_image_path) {
-    await owned.supabase.from("events").update({ cover_image_path: null }).eq("id", owned.event.id);
+    await admin().from("events").update({ cover_image_path: null }).eq("id", owned.event.id);
     await removeObjects([owned.event.cover_image_path, coverOriginalPath(owned.event.cover_image_path)]).catch(() => {});
   }
   return Response.json({ ok: true });

@@ -4,6 +4,8 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "X-Frame-Options", value: "DENY" },
+  // Browsers only ever use HTTPS for this site (no subdomains, so other services aren't affected).
+  { key: "Strict-Transport-Security", value: "max-age=31536000" },
   // Camera is only ever requested by this origin, after a tap.
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
 ];

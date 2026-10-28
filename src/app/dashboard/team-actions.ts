@@ -22,7 +22,12 @@ async function ownerOf(eventId: string) {
 }
 
 function fail(e: unknown): { ok: false; error: string } {
-  return { ok: false, error: e instanceof Error ? e.message : "Something went wrong." };
+  const msg = e instanceof Error ? e.message : "Something went wrong.";
+  if (/violates|column|relation|policy|permission denied|syntax|constraint|JSON|PGRST/i.test(msg)) {
+    console.error("team action failed", msg);
+    return { ok: false, error: "That didn't work. Try again, or contact support if it keeps happening." };
+  }
+  return { ok: false, error: msg };
 }
 
 /**

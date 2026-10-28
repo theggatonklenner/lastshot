@@ -95,7 +95,8 @@ async function codeProblem(dc: DiscountCodeRecord | null, userId: string, eventI
       break;
     case "reward":
     case "second_event":
-      if (dc.owner_id !== userId) return "That code belongs to another account.";
+      // Same message as an unknown code, so codes can't be confirmed by guessing.
+      if (dc.owner_id !== userId) return "That code isn't valid. Check it and try again.";
       if (dc.kind === "second_event" && eventId && dc.source_event_id === eventId) {
         return "This code is for your next event, not this one.";
       }

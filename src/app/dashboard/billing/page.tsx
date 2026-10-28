@@ -100,7 +100,7 @@ export default async function BillingPage() {
                   {r.status === "refunded" && <span className="block text-xs text-graphite">Refunded</span>}
                 </span>
               </div>
-              {docs && (
+              {docs && r.user_id === user.id && (
                 <span className="flex gap-4 text-sm font-semibold">
                   <a href={`/api/billing/${r.id}/invoice`} target="_blank" rel="noopener" className="text-cobalt">
                     Invoice
@@ -158,7 +158,7 @@ export default async function BillingPage() {
                       )}
                     </td>
                     <td className="px-5 py-3.5">
-                      {docs ? (
+                      {docs && r.user_id === user.id ? (
                         <span className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-semibold">
                           <a href={`/api/billing/${r.id}/invoice`} target="_blank" rel="noopener" className="text-cobalt hover:underline">
                             Invoice

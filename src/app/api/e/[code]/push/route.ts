@@ -1,13 +1,14 @@
 import type { NextRequest } from "next/server";
 import { after } from "next/server";
 import { z } from "zod";
+import { isPushServiceUrl } from "@/lib/safety";
 import { admin } from "@/lib/supabase/admin";
 import { getEventByCode, getGuestForEvent, rateLimit } from "@/lib/server/guest";
 import { guestError, jsonError } from "@/lib/server/http";
 import { sendDueGalleryEmails } from "@/lib/server/gallery-emails";
 
 const Body = z.object({
-  endpoint: z.url().startsWith("https://").max(1000),
+  endpoint: z.url().startsWith("https://").max(1000).refine(isPushServiceUrl, "Not a push service"),
   keys: z.object({ p256dh: z.string().min(10).max(200), auth: z.string().min(4).max(100) }),
 });
 

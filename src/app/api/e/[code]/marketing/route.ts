@@ -28,8 +28,10 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/e/[code]/ma
   const { error } = await admin()
     .from("marketing_contacts")
     .upsert(
-      rows.map((r) => ({ ...r, event_id: event.id, consent_text: MARKETING_CONSENT, consented_at: new Date().toISOString(), unsubscribed_at: null })),
-      { onConflict: "channel,contact" },
+      rows.map((r) => ({ ...r, event_id: event.id, consent_text: MARKETING_CONSENT, consented_at: new Date().toISOString() })),
+      // Never overwrite an existing record: someone who unsubscribed stays unsubscribed,
+      // and nobody can re-record consent for another person's address.
+      { onConflict: "channel,contact", ignoreDuplicates: true },
     );
   if (error) return guestError("server_error");
   return Response.json({ ok: true });

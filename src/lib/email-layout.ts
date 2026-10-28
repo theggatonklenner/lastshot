@@ -114,7 +114,7 @@ export function renderEmail(input: LayoutInput) {
 </style>
 </head>
 <body style="margin:0;padding:0;background:${C.paper};font-family:${FONT};color:${C.ink}">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:${C.paper}">${input.preheader}&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;</div>
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:${C.paper}">${esc(input.preheader)}&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;&#8199;&#65279;&#847;</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.paper}">
 <tr><td align="center" style="padding:28px 12px 36px">
 

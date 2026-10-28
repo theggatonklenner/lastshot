@@ -10,6 +10,8 @@ import { siteUrl } from "@/lib/env";
 import { createCheckoutSession, stripeConfigured } from "@/lib/server/stripe";
 import { applyDiscount, orderToParams, priceCart } from "@/lib/plans";
 import { resolveDiscount } from "@/lib/server/discounts";
+import { closeOlderCheckouts } from "@/lib/server/payments";
+import { rateLimit } from "@/lib/server/guest";
 import { requireOrganiser } from "@/lib/server/organiser";
 import { recordError } from "@/lib/server/error-log";
 import type { Addon, Plan } from "@/lib/database.types";
@@ -27,6 +29,7 @@ export type CodeCheck = { ok: true; code: string | null; percent: number; label:
 /** Checks a discount code for the order summary. The real price is worked out again at checkout. */
 export async function checkDiscountCode(eventId: string | null, code: string): Promise<CodeCheck> {
   const { user } = await requireOrganiser();
+  if (!(await rateLimit(`code-check:${user.id}`, 20, 3600))) return { ok: false, error: "Too many tries. Try again in an hour." };
   const res = await resolveDiscount(user.id, code, { eventId });
   if (res.error) return { ok: false, error: res.error };
   if (!res.discount) return { ok: false, error: "That code isn't valid. Check it and try again." };
@@ -54,6 +57,7 @@ export async function startCartCheckout(
   const { discount, error: codeError } = await resolveDiscount(user.id, opts.code, { eventId: event.id });
   if (codeError) return { error: codeError };
   const priced = applyDiscount(cart.lines, discount?.percent ?? 0, discount?.code ?? null);
+  await closeOlderCheckouts({ eventId: event.id }).catch(() => {});
 
   const base = `${siteUrl()}/dashboard/events/${event.id}/upgrade`;
   const from = opts.from === "new" ? "&from=new" : "";

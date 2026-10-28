@@ -303,7 +303,7 @@ export function Camera(props: CameraProps) {
   const goldMode = (remaining === 1 && phase !== "unsupported") || lastMoment;
 
   return (
-    <div
+    <main
       className={cx("plastic fixed inset-0 flex flex-col text-cream transition-[background] duration-700 select-none", goldMode && "gold-mode")}
       style={{
         ["--shell" as string]: goldMode ? "linear-gradient(135deg,#8f6a1f,#f6dc8a 40%,#d4a537 65%,#b8892b)" : theme.shell,
@@ -574,6 +574,7 @@ export function Camera(props: CameraProps) {
       <input
         ref={fallbackInput}
         type="file"
+        aria-label="Take a photo with your phone's camera app"
         accept="image/*"
         capture="environment"
         className="sr-only"
@@ -583,12 +584,13 @@ export function Camera(props: CameraProps) {
       <input
         ref={libraryInput}
         type="file"
+        aria-label="Add a photo from your library"
         accept="image/*"
         className="sr-only"
         tabIndex={-1}
         onChange={(e) => fromFile(e.target.files?.[0], "library")}
       />
-    </div>
+    </main>
   );
 }
 

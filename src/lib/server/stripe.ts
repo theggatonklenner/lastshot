@@ -1,5 +1,11 @@
 import "server-only";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+
+/**
+ * Stripe tax category for every product: "General - Electronically Supplied
+ * Services". Required when Stripe Managed Payments is on, harmless otherwise.
+ */
+const TAX_CODE = process.env.STRIPE_TAX_CODE || "txcd_10000000";
 
 /** Minimal Stripe client over fetch (Checkout + webhooks only). */
 
@@ -32,19 +38,22 @@ async function stripe<T>(method: "GET" | "POST", path: string, params?: Record<s
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error("Stripe isn't set up (STRIPE_SECRET_KEY).");
   const qs = method === "GET" && params ? `?${encode(params)}` : "";
+  const form = method === "POST" && params ? encode(params).toString() : undefined;
+  // Tie the idempotency key to the exact request, so a changed order never collides with an earlier attempt.
+  const idemKey = idempotencyKey && form ? `${idempotencyKey}:${createHash("sha256").update(form).digest("hex").slice(0, 16)}` : undefined;
   const res = await fetch(`https://api.stripe.com/v1/${path}${qs}`, {
     method,
     headers: {
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/x-www-form-urlencoded",
-      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+      ...(idemKey ? { "Idempotency-Key": idemKey } : {}),
     },
-    body: method === "POST" && params ? encode(params) : undefined,
+    body: form,
     cache: "no-store",
   });
-  const body = await res.json();
-  if (!res.ok) throw new Error(`Stripe ${res.status}: ${body?.error?.message ?? "request failed"}`);
-  return body as T;
+  const json = await res.json();
+  if (!res.ok) throw new Error(`Stripe ${res.status}: ${json?.error?.message ?? "request failed"}`);
+  return json as T;
 }
 
 export type CheckoutSession = {
@@ -87,7 +96,11 @@ export function createCheckoutSession(p: {
           price_data: {
             currency: "aud",
             unit_amount: it.amountCents,
-            product_data: { name: it.name.slice(0, 120), ...(it.description ? { description: it.description } : {}) },
+            product_data: {
+              name: it.name.slice(0, 120),
+              tax_code: TAX_CODE,
+              ...(it.description ? { description: it.description } : {}),
+            },
           },
         }),
       ),

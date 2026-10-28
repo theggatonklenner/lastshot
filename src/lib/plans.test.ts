@@ -7,20 +7,21 @@ import { verifyStripeSignature } from "./server/stripe";
 describe("plans", () => {
   it("matches the guest limits in public.plan_guest_limit()", () => {
     expect(PLANS.map((p) => [p.id, p.guests])).toEqual([
-      ["free", 20],
+      ["free", 10],
+      ["small", 50],
       ["party", 100],
       ["big", 300],
       ["unlimited", null],
     ]);
   });
   it("charges only the difference when upgrading", () => {
-    expect(upgradePrice("free", "party")).toBe(4900);
-    expect(upgradePrice("party", "big")).toBe(5000);
+    expect(upgradePrice("free", "small")).toBe(5900);
+    expect(upgradePrice("party", "big")).toBe(8000);
     expect(upgradePrice("big", "party")).toBe(0);
   });
   it("formats prices", () => {
     expect(formatPrice(0)).toBe("Free");
-    expect(formatPrice(19900)).toBe("$199");
+    expect(formatPrice(29900)).toBe("$299");
     expect(formatPrice(4950)).toBe("$49.50");
     expect(planInfo("big").name).toBe("Big event");
   });

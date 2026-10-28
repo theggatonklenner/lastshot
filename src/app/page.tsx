@@ -89,7 +89,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
               </LinkButton>
             </div>
             <p className="text-sm text-graphite">
-              Free for up to 20 guests. Guests don&apos;t need an account or an app.
+              Free for up to 10 guests. Guests don&apos;t need an account or an app.
             </p>
           </div>
           <div className="flex justify-center lg:justify-end">
@@ -196,7 +196,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                 plan has every feature; only the number of cameras changes.
               </p>
             </div>
-            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               {PLANS.map((p) => (
                 <div
                   key={p.id}

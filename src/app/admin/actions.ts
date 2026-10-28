@@ -182,7 +182,7 @@ export async function resolveError(id: string): Promise<Result> {
   }
 }
 
-const PlanSchema = z.enum(["free", "party", "big", "unlimited"]);
+const PlanSchema = z.enum(["free", "small", "party", "big", "unlimited"]);
 
 /** Sets an event's plan directly (comps, refunds, support). */
 export async function setEventPlan(eventId: string, plan: string): Promise<Result> {

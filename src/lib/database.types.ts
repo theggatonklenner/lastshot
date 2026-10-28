@@ -51,7 +51,7 @@ type EventRow = {
   bonus_at: string | null;
 };
 
-export type Plan = "free" | "party" | "big" | "unlimited";
+export type Plan = "free" | "small" | "party" | "big" | "unlimited";
 
 type PaymentRow = {
   id: string;

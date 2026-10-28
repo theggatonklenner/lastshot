@@ -11,13 +11,14 @@ export type PlanInfo = {
 };
 
 export const PLANS: PlanInfo[] = [
-  { id: "free", name: "Free", price: 0, guests: 20, blurb: "Try it at a small get-together." },
-  { id: "party", name: "Party", price: 4900, guests: 100, blurb: "Birthdays, dinners and most parties." },
-  { id: "big", name: "Big event", price: 9900, guests: 300, blurb: "Weddings, formals and big celebrations." },
-  { id: "unlimited", name: "Unlimited", price: 19900, guests: null, blurb: "Festivals, schools and anything huge." },
+  { id: "free", name: "Free", price: 0, guests: 10, blurb: "Try it with a few friends." },
+  { id: "small", name: "Small", price: 5900, guests: 50, blurb: "Dinners, birthdays and small parties." },
+  { id: "party", name: "Party", price: 9900, guests: 100, blurb: "Bigger parties and celebrations." },
+  { id: "big", name: "Big event", price: 17900, guests: 300, blurb: "Weddings, formals and big celebrations." },
+  { id: "unlimited", name: "Unlimited", price: 29900, guests: null, blurb: "Festivals, schools and anything huge." },
 ];
 
-export const PLAN_ORDER: Plan[] = ["free", "party", "big", "unlimited"];
+export const PLAN_ORDER: Plan[] = ["free", "small", "party", "big", "unlimited"];
 
 export function planInfo(plan: Plan): PlanInfo {
   return PLANS.find((p) => p.id === plan) ?? PLANS[0];

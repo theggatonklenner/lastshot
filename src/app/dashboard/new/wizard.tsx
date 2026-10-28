@@ -236,7 +236,7 @@ function Review({ value, hasCode }: { value: EventInputType; hasCode: boolean })
       value.email_capture_enabled && value.gallery_visibility !== "private" ? "Guests can ask for an email" : "Off",
     ],
     ["Access code", hasCode ? "Required" : "None"],
-    ["Plan", "Free, up to 20 guests. Upgrade any time from the event page."],
+    ["Plan", "Free, up to 10 guests. Upgrade any time from the event page."],
   ];
   return (
     <div className="flex flex-col gap-4">

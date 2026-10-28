@@ -28,11 +28,11 @@ begin
 
   if (select plan from public.events where id = ev) <> 'free' then raise exception 'FAIL default plan'; end if;
 
-  -- Free plan: 20 guests, the 21st is refused, returning guests still get in.
-  for i in 1..20 loop
+  -- Free plan: 10 guests, the 11th is refused, returning guests still get in.
+  for i in 1..10 loop
     g := public.guest_join(ev, lpad(to_hex(i), 64, '0'), null, null);
   end loop;
-  begin perform public.guest_join(ev, repeat('f',64), null, null); raise exception 'FAIL 21st guest joined';
+  begin perform public.guest_join(ev, repeat('f',64), null, null); raise exception 'FAIL 11th guest joined';
   exception when sqlstate '53400' then log := log || 'guest limit ok; '; end;
   g1 := public.guest_join(ev, lpad(to_hex(1), 64, '0'), 'Back', null);
   log := log || 'returning guest ok; ';
@@ -50,10 +50,10 @@ begin
 
   -- Payment fulfilment upgrades once, never downgrades.
   insert into public.payments (event_id, user_id, plan, amount_cents, stripe_session_id)
-    values (ev, owner, 'party', 4900, 'cs_test_1');
+    values (ev, owner, 'small', 5900, 'cs_test_1');
   pay := public.fulfil_payment('cs_test_1', 'pi_1', 'owner@test.local');
   pay := public.fulfil_payment('cs_test_1', 'pi_1', 'owner@test.local');
-  if pay.status <> 'paid' or (select plan from public.events where id = ev) <> 'party' then raise exception 'FAIL fulfil'; end if;
+  if pay.status <> 'paid' or (select plan from public.events where id = ev) <> 'small' then raise exception 'FAIL fulfil'; end if;
   g := public.guest_join(ev, repeat('f',64), null, null);
   log := log || 'upgrade lets guests in ok; ';
   update public.events set plan = 'big' where id = ev;

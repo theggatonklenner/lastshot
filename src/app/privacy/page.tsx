@@ -41,6 +41,25 @@ const sections: { title: string; body: React.ReactNode }[] = [
     body: <p>Your email address, password (stored hashed by our authentication provider), your name if you give it, and the events you create.</p>,
   },
   {
+    title: "Payments",
+    body: (
+      <p>
+        Payments are handled by Stripe. We never see or store your card number. We keep a record of what you bought,
+        the amount, any discount code and the receipt email, as tax law requires.
+      </p>
+    ),
+  },
+  {
+    title: "Services we use",
+    body: (
+      <p>
+        To run Lastshot we use: Supabase (database and photo storage, in Sydney), Vercel (hosting, in Sydney), Stripe
+        (payments), Resend (email) and Texto (text messages, in Australia). Some of these companies may process data
+        outside Australia, for example in the United States. They only use it to provide their service to us.
+      </p>
+    ),
+  },
+  {
     title: "Who can see photos",
     body: (
       <p>

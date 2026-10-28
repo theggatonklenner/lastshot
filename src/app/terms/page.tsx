@@ -94,6 +94,18 @@ const sections: { title: string; body: React.ReactNode }[] = [
     ),
   },
   {
+    title: "Payments and refunds",
+    body: (
+      <p>
+        Prices are in Australian dollars and are paid once per event, or once per pack. There&apos;s no subscription.
+        Plans and add-ons apply to the event you buy them for and start straight away. Pack events don&apos;t expire.
+        If something you paid for doesn&apos;t work, email support@lastshot.app and we&apos;ll fix it or refund you.
+        If a payment is refunded, any pack events not yet used are cancelled. You also have the rights the Australian
+        Consumer Law gives you.
+      </p>
+    ),
+  },
+  {
     title: "No guarantees",
     body: (
       <p>

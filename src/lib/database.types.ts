@@ -59,6 +59,8 @@ type EventRow = {
   frame_subtext: string | null;
   frame_color: "white" | "cream" | "black";
   brand_logo_path: string | null;
+  mystery_at: string | null;
+  mystery_prompt: string | null;
 };
 
 export type Addon = "frame" | "branding" | "storage" | "storage1y" | "sms";
@@ -109,6 +111,7 @@ type GuestRow = {
   last_active_at: string;
   photos_submitted: number;
   user_id: string | null;
+  retakes_used: number;
 };
 
 type PhotoRow = {
@@ -337,6 +340,10 @@ export type Database = {
       };
       admin_overview: { Args: never; Returns: Json };
       admin_revenue: { Args: never; Returns: Json };
+      retake_last_photo: {
+        Args: { p_guest_id: string };
+        Returns: { photo_id: string; storage_path: string | null; display_path: string | null; thumbnail_path: string | null; shots_used: number }[];
+      };
       add_guest_phone: { Args: { p_guest_id: string; p_phone: string }; Returns: SmsRow };
       claim_gallery_sms: {
         Args: { p_event_id: string | null; p_limit: number };

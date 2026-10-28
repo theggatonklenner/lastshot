@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CameraTheme } from "@/lib/themes";
 import { develop, type PhotoFrame } from "@/lib/client/develop";
+import { guestToken } from "@/lib/client/upload-queue";
 import { decodeFile } from "@/lib/client/image";
 import { useUploadQueue } from "@/lib/client/upload-queue";
 import { counterText } from "@/lib/rules";
@@ -20,6 +21,9 @@ export type CameraProps = {
   dateStamp: boolean;
   frame?: PhotoFrame | null;
   limit: number;
+  retakesLeft?: number;
+  /** Mystery shot prompt, once it has unlocked. */
+  mysteryPrompt?: string | null;
   initialUsed: number;
   allowLibrary: boolean;
   demo?: boolean;
@@ -28,7 +32,11 @@ export type CameraProps = {
 };
 
 export function Camera(props: CameraProps) {
-  const { code, title, theme, dateStamp, frame, limit, initialUsed, allowLibrary, demo, exitHref, doneHref } = props;
+  const { code, title, theme, dateStamp, frame, initialUsed, allowLibrary, demo, exitHref, doneHref } = props;
+  const [limit, setLimit] = useState(props.limit);
+  const [retakesLeft, setRetakesLeft] = useState(props.retakesLeft ?? 0);
+  const [mystery, setMystery] = useState<string | null>(props.mysteryPrompt ?? null);
+  const [retaking, setRetaking] = useState(false);
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -44,6 +52,54 @@ export function Camera(props: CameraProps) {
 
   const queue = useUploadQueue({ code, initialUsed, demo });
   const remaining = Math.max(0, limit - queue.used - queue.items.length);
+
+  // Bonus and mystery shots can unlock while the camera is open, so check in now and then.
+  useEffect(() => {
+    if (demo) return;
+    const check = async () => {
+      try {
+        const token = guestToken(code);
+        const res = await fetch(`/api/e/${code}/me`, { headers: token ? { "x-lastshot-guest": token } : {}, cache: "no-store" });
+        const j = await res.json();
+        if (!j.guest) return;
+        setLimit(j.guest.shotsLimit);
+        setRetakesLeft(j.guest.retakesLeft ?? 0);
+        setMystery(j.guest.mystery ?? null);
+      } catch {
+        /* offline: try again later */
+      }
+    };
+    const t = setInterval(check, 30_000);
+    return () => clearInterval(t);
+  }, [code, demo]);
+
+  async function retake() {
+    if (retaking) return;
+    setRetaking(true);
+    setLocalError(null);
+    try {
+      const token = guestToken(code);
+      const res = await fetch(`/api/e/${code}/retake`, {
+        method: "POST",
+        headers: token ? { "x-lastshot-guest": token } : {},
+      });
+      const j = await res.json();
+      if (!res.ok) {
+        setLocalError(j.message ?? "That didn't work. Try again.");
+        if (j.code === "no_retakes_left") setRetakesLeft(0);
+        return;
+      }
+      queue.setUsed(j.shotsUsed);
+      setLimit(j.shotsLimit);
+      setRetakesLeft(j.retakesLeft);
+      setLocalError("Last shot deleted. Take it again.");
+    } catch {
+      setLocalError("No connection. Try the retake again in a moment.");
+    } finally {
+      setRetaking(false);
+    }
+  }
+  const canRetake = !demo && retakesLeft > 0 && queue.used > 0 && queue.items.length === 0;
   const rollFinished = remaining === 0 && queue.items.length === 0 && queue.loaded;
 
   const stop = useCallback(() => {
@@ -212,6 +268,13 @@ export function Camera(props: CameraProps) {
         </div>
       </div>
 
+      {mystery && remaining > 0 && (
+        <div className="mx-4 mt-3 flex items-center gap-3 rounded-[14px] bg-flash px-4 py-2.5 text-body">
+          <span className="text-xs font-bold tracking-wide uppercase">Mystery shot</span>
+          <span className="text-[15px] leading-snug font-semibold">{mystery}</span>
+        </div>
+      )}
+
       {/* Status line */}
       <div className="flex min-h-12 items-center justify-center px-5 pt-3 text-center text-[15px]" aria-live="polite">
         {noticeText ? (
@@ -229,8 +292,19 @@ export function Camera(props: CameraProps) {
           <span className="text-cream-dim">No connection. Your photos are safe and will send when you&apos;re back online.</span>
         ) : queue.justSaved ? (
           <span className="text-cream">{demo ? "Developed. Demo shots stay on this phone." : "Saved to the event"}</span>
+        ) : canRetake && remaining === 0 ? (
+          <button onClick={retake} disabled={retaking} className="font-semibold text-flash underline underline-offset-4">
+            {retaking ? "Deleting…" : "Blinked? Retake your last shot"}
+          </button>
         ) : rollFinished ? (
           <span className="text-cream">That&apos;s the roll. Every photo is saved.</span>
+        ) : canRetake ? (
+          <span className="flex items-center gap-3 text-cream-dim">
+            Make it count
+            <button onClick={retake} disabled={retaking} className="font-semibold text-cream underline underline-offset-4">
+              {retaking ? "Deleting…" : "Retake last"}
+            </button>
+          </span>
         ) : (
           <span className="text-cream-dim">{remaining === 0 ? "Finishing up" : "Make it count"}</span>
         )}

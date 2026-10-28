@@ -347,6 +347,7 @@ function Review({
         ? `${value.photos_per_guest}, plus ${value.bonus_shots} at ${formatDateTime(value.bonus_at ?? null)}`
         : String(value.photos_per_guest),
     ],
+    ["Mystery shot", value.mystery_at ? `At ${formatDateTime(value.mystery_at)}${value.mystery_prompt ? `: ${value.mystery_prompt}` : ""}` : "Off"],
     ["Camera style", THEMES[value.theme].name],
     ["Gallery opens", reveal],
     ["Who sees the gallery", visibility],

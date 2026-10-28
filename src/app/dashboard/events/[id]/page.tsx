@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { requireOwnedEvent } from "@/lib/server/organiser";
 import { signPaths } from "@/lib/server/media";
 import { guestUrl } from "@/lib/env";
-import { bonusPending, galleryRevealed, retentionUntil, shotLimit } from "@/lib/rules";
+import { bonusPending, galleryRevealed, isPast, retentionUntil, shotLimit } from "@/lib/rules";
 import { eventGuestLimit } from "@/lib/plans";
 import { formatDateTime, timeAgo } from "@/lib/format";
 import { Countdown } from "@/components/countdown";
@@ -66,6 +66,12 @@ export default async function EventOverview({ params, searchParams }: PageProps<
             {stats.guests >= guestLimit!
               ? `This event is full: all ${guestLimit} cameras are taken, so new guests can't join.`
               : `${stats.guests} of ${guestLimit} cameras are taken. Upgrade so nobody gets turned away.`}
+          </Notice>
+        )}
+        {event.mystery_at && !isPast(event.mystery_at) && (
+          <Notice tone="info">
+            The mystery shot unlocks for every guest at {formatDateTime(event.mystery_at)}
+            {event.mystery_prompt ? `: “${event.mystery_prompt}”` : ", each with a random challenge"}.
           </Notice>
         )}
         {bonusLater && event.bonus_at && (

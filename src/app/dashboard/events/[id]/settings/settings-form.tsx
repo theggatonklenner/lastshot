@@ -20,6 +20,8 @@ function toInput(e: EventRecord): EventInputType {
     photos_per_guest: e.photos_per_guest,
     bonus_shots: e.bonus_shots,
     bonus_at: e.bonus_at,
+    mystery_at: e.mystery_at,
+    mystery_prompt: e.mystery_prompt,
     reveal_mode: e.reveal_mode,
     reveal_at: e.reveal_at,
     gallery_visibility: e.gallery_visibility,

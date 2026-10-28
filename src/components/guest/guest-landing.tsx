@@ -47,6 +47,11 @@ export function GuestLanding({
                 +{event.bonus_shots} bonus shots unlock {formatDateTime(event.bonus_at, event.timezone)}.
               </span>
             )}
+            {event.mystery_at && (
+              <span className="mt-1 block font-semibold text-flash">
+                A mystery shot with a surprise challenge unlocks {formatDateTime(event.mystery_at, event.timezone)}.
+              </span>
+            )}
           </p>
         </div>
         <JoinPanel

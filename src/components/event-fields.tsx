@@ -159,6 +159,50 @@ export function RollFields({ value, set, errors }: Props) {
         )}
       </div>
 
+      <div className="flex flex-col gap-3">
+        <Toggle
+          checked={!!value.mystery_at}
+          onChange={(on) => {
+            if (on) {
+              const d = new Date(Date.now() + 2 * 3600_000);
+              d.setMinutes(0, 0, 0);
+              set("mystery_at", d.toISOString());
+            } else {
+              set("mystery_at", null);
+              set("mystery_prompt", null);
+            }
+          }}
+          label="Mystery shot"
+          description="At a set time, every guest gets one extra shot with a surprise challenge, like “Photograph whoever is closest to you right now”."
+        />
+        {value.mystery_at && (
+          <div className="grid gap-4 sm:grid-cols-[1fr_1.4fr]">
+            <Field label="Unlocks at" htmlFor="mystery_at" hint="Uses your device's time zone.">
+              <Input
+                id="mystery_at"
+                type="datetime-local"
+                value={isoToLocalInput(value.mystery_at ?? null)}
+                onChange={(e) => set("mystery_at", localInputToIso(e.target.value))}
+              />
+            </Field>
+            <Field
+              label="Challenge (optional)"
+              htmlFor="mystery_prompt"
+              error={errors?.mystery_prompt}
+              hint="Leave empty and each guest gets a different random challenge."
+            >
+              <Input
+                id="mystery_prompt"
+                value={value.mystery_prompt ?? ""}
+                maxLength={120}
+                placeholder="Get a photo with the birthday girl"
+                onChange={(e) => set("mystery_prompt", e.target.value || null)}
+              />
+            </Field>
+          </div>
+        )}
+      </div>
+
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1.5 text-[15px] font-semibold">Camera style</legend>
         <div className="grid gap-3 sm:grid-cols-2">

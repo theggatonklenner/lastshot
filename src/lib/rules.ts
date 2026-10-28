@@ -104,12 +104,19 @@ export const STATUS_LABEL: Record<EventRecord["status"], string> = {
   archived: "Archived",
 };
 
-type BonusFields = Pick<EventRecord, "photos_per_guest" | "bonus_shots" | "bonus_at">;
+type BonusFields = Pick<EventRecord, "photos_per_guest" | "bonus_shots" | "bonus_at"> & { mystery_at?: string | null };
 
-/** Shots each guest gets right now, including bonus shots once unlocked. Mirrors public.event_shot_limit(). */
+/** Shots each guest gets right now, including bonus and mystery shots once unlocked. Mirrors public.event_shot_limit(). */
 export function shotLimit(e: BonusFields, now: Date = new Date()): number {
-  return e.photos_per_guest + (bonusUnlocked(e, now) ? e.bonus_shots : 0);
+  return e.photos_per_guest + (bonusUnlocked(e, now) ? e.bonus_shots : 0) + (mysteryUnlocked(e, now) ? 1 : 0);
 }
+
+export function mysteryUnlocked(e: { mystery_at?: string | null }, now: Date = new Date()): boolean {
+  return !!e.mystery_at && new Date(e.mystery_at).getTime() <= now.getTime();
+}
+
+export const RETAKES_PER_ROLL = 1;
+export const RETAKE_WINDOW_MINUTES = 10;
 
 export function bonusUnlocked(e: BonusFields, now: Date = new Date()): boolean {
   return e.bonus_shots > 0 && !!e.bonus_at && new Date(e.bonus_at).getTime() <= now.getTime();

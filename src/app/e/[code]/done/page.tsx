@@ -3,7 +3,9 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { loadGuestContext } from "@/lib/server/guest-page";
 import { formatDateTime } from "@/lib/format";
-import { bonusPending, shotLimit } from "@/lib/rules";
+import { RETAKES_PER_ROLL, RETAKE_WINDOW_MINUTES, bonusPending, isPast, shotLimit } from "@/lib/rules";
+import { admin } from "@/lib/supabase/admin";
+import { RetakeButton } from "@/components/guest/retake-button";
 import { Countdown } from "@/components/countdown";
 import { GuestMessage, guestButton } from "@/components/guest/guest-shell";
 import { EmailCapture } from "@/components/guest/email-capture";
@@ -37,6 +39,21 @@ export default async function DonePage({ params }: PageProps<"/e/[code]/done">) 
     );
   }
   const bonusLater = accepting && bonusPending(event) && event.bonus_at;
+  const mysteryLater = accepting && event.mystery_at && !isPast(event.mystery_at) ? event.mystery_at : null;
+  // Offer the retake if it's still possible (last photo within the window).
+  let canRetake = false;
+  if (accepting && !guest.blocked && guest.retakes_used < RETAKES_PER_ROLL) {
+    const { data: last } = await admin()
+      .from("photos")
+      .select("uploaded_at")
+      .eq("guest_id", guest.id)
+      .eq("upload_status", "complete")
+      .order("uploaded_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    canRetake =
+      !!last?.uploaded_at && !isPast(new Date(new Date(last.uploaded_at).getTime() + RETAKE_WINDOW_MINUTES * 60_000).toISOString());
+  }
 
   const shots = guest.photos_submitted;
   let galleryLine: React.ReactNode;
@@ -79,7 +96,14 @@ export default async function DonePage({ params }: PageProps<"/e/[code]/done">) 
           <Countdown to={bonusLater} className="numeric" />. Come back to this page then.
         </p>
       )}
+      {mysteryLater && (
+        <p className="mt-3 rounded-[14px] bg-body-2 p-3 font-semibold text-flash">
+          A mystery shot unlocks in <Countdown to={mysteryLater} className="numeric" />. Come back to this page then for
+          your surprise challenge.
+        </p>
+      )}
       <p className="mt-3">{galleryLine}</p>
+      {canRetake && <RetakeButton code={code} />}
       {galleryHref && (
         <div className="mt-6">
           <AddToHomeHint />

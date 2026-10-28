@@ -92,3 +92,19 @@ describe("add-ons", () => {
     expect(addonPrice("frame", { plan: "big" })).toBe(1900);
   });
 });
+
+describe("mystery shot", () => {
+  it("uses the organiser's challenge or a stable random one per guest", async () => {
+    const { mysteryPromptFor, MYSTERY_PROMPTS } = await import("./mystery");
+    expect(mysteryPromptFor("Find a hat", "g1")).toBe("Find a hat");
+    const a = mysteryPromptFor(null, "guest-abc");
+    expect(MYSTERY_PROMPTS).toContain(a);
+    expect(mysteryPromptFor("", "guest-abc")).toBe(a);
+  });
+  it("adds one shot once unlocked", async () => {
+    const { shotLimit } = await import("./rules");
+    const e = { photos_per_guest: 10, bonus_shots: 0, bonus_at: null, mystery_at: "2026-10-28T10:00:00Z" };
+    expect(shotLimit(e, new Date("2026-10-28T09:59:00Z"))).toBe(10);
+    expect(shotLimit(e, new Date("2026-10-28T10:00:00Z"))).toBe(11);
+  });
+});

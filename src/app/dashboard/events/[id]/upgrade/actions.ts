@@ -5,7 +5,7 @@ import { requireOwnedEvent } from "@/lib/server/organiser";
 import { admin } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/env";
 import { createCheckoutSession, stripeConfigured } from "@/lib/server/stripe";
-import { PLAN_ORDER, eventGuestLimit, planInfo, planRank, seatPrice, seatRate, upgradePrice, guestLimitText, validSeatCount, formatPrice } from "@/lib/plans";
+import { PLAN_ORDER, eventGuestLimit, planInfo, planRank, seatDiscount, seatPrice, upgradePrice, guestLimitText, validSeatCount } from "@/lib/plans";
 import type { Plan } from "@/lib/database.types";
 
 export type CheckoutState = { error?: string } | undefined;
@@ -73,7 +73,9 @@ export async function startSeatsCheckout(_prev: CheckoutState, form: FormData): 
     const session = await createCheckoutSession({
       amountCents: amount,
       productName: `Lastshot: ${seats} extra seats for ${event.title}`.slice(0, 120),
-      description: `${seats} more guests can join (${formatPrice(seatRate(seats))} each).`,
+      description: seatDiscount(seats)
+        ? `${seats} more guests can join. Includes a ${seatDiscount(seats)}% bulk discount.`
+        : `${seats} more guests can join.`,
       email: user.email!,
       successUrl: `${base}?paid=seats&session_id={CHECKOUT_SESSION_ID}`,
       cancelUrl: `${base}?cancelled=1`,

@@ -9,6 +9,7 @@ import {
   SEAT_TIERS,
   betterPlanThanSeats,
   formatPrice,
+  seatDiscount,
   seatPrice,
   seatRate,
 } from "@/lib/plans";
@@ -37,6 +38,9 @@ export function SeatsSlider({
   const better = betterPlanThanSeats(plan, extraGuests, seats);
   const pct = ((seats - SEATS_MIN) / (SEATS_MAX - SEATS_MIN)) * 100;
   const tiers = [...SEAT_TIERS].reverse();
+  const discount = seatDiscount(seats);
+  const nextTier = tiers.find((t) => t.from > seats);
+  const nextDiscount = nextTier ? seatDiscount(nextTier.from) : 0;
 
   return (
     <form action={action} className="flex flex-col gap-5">
@@ -51,10 +55,17 @@ export function SeatsSlider({
           </p>
         </div>
         <div className="sm:text-right">
-          <p className="display text-4xl numeric">{formatPrice(total)}</p>
-          <p className="text-sm text-graphite">
-            {formatPrice(rate)} a seat{saving > 0 && <span className="font-semibold text-ok"> · You save {formatPrice(saving)}</span>}
+          <p className="flex items-baseline gap-2 sm:justify-end">
+            {saving > 0 && <span className="text-lg text-graphite line-through numeric">{formatPrice(fullPrice)}</span>}
+            <span className="display text-4xl numeric">{formatPrice(total)}</span>
           </p>
+          {discount > 0 ? (
+            <p className="mt-1 inline-flex rounded-full bg-ok-soft px-2.5 py-0.5 text-sm font-semibold text-ok">
+              {discount}% off · You save {formatPrice(saving)}
+            </p>
+          ) : (
+            <p className="text-sm text-graphite">Standard price</p>
+          )}
         </div>
       </div>
 
@@ -80,21 +91,29 @@ export function SeatsSlider({
         </div>
       </div>
 
-      <ul className="grid gap-2 sm:grid-cols-3" aria-label="Price per seat">
+      {nextTier && (
+        <p className="text-[15px] text-graphite">
+          Add <span className="font-semibold text-ink numeric">{nextTier.from - seats}</span> more to get{" "}
+          <span className="font-semibold text-ok">{nextDiscount}% off</span> every seat.
+        </p>
+      )}
+
+      <ul className="grid gap-2 sm:grid-cols-3" aria-label="Bulk discounts">
         {tiers.map((t, i) => {
           const to = tiers[i + 1] ? tiers[i + 1].from - SEATS_STEP : SEATS_MAX;
           const active = rate === t.cents;
+          const off = seatDiscount(t.from);
           return (
             <li
               key={t.from}
               className={cx(
                 "rounded-control border px-3 py-2.5 transition-colors",
-                active ? "border-cobalt bg-cobalt-soft text-cobalt-deep" : "border-line text-graphite",
+                active ? "border-ok bg-ok-soft text-ok" : "border-line text-graphite",
               )}
             >
-              <span className="block font-bold numeric">{formatPrice(t.cents)} a seat</span>
+              <span className="block font-bold">{off ? `${off}% off` : "Standard price"}</span>
               <span className="text-sm numeric">
-                {Math.max(t.from, SEATS_MIN)}–{to} seats
+                {i === tiers.length - 1 ? `${t.from}+ seats` : `${Math.max(t.from, SEATS_MIN)}–${to} seats`}
               </span>
             </li>
           );

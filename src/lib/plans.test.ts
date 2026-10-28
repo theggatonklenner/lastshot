@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createHmac } from "node:crypto";
-import { PLANS, betterPlanThanSeats, formatPrice, planInfo, seatPrice, seatRate, upgradePrice, validSeatCount } from "./plans";
+import { PLANS, betterPlanThanSeats, formatPrice, planInfo, seatDiscount, seatPrice, seatRate, upgradePrice, validSeatCount } from "./plans";
 import { bonusPending, bonusUnlocked, shotLimit } from "./rules";
 import { verifyStripeSignature } from "./server/stripe";
 
@@ -34,6 +34,7 @@ describe("extra seats", () => {
     expect(seatPrice(50)).toBe(7500);
     expect(seatPrice(150)).toBe(15000);
     expect(seatRate(500)).toBe(100);
+    expect([seatDiscount(5), seatDiscount(50), seatDiscount(150)]).toEqual([0, 25, 50]);
   });
   it("only accepts slider values", () => {
     expect(validSeatCount(5)).toBe(true);

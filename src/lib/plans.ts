@@ -33,6 +33,12 @@ export function seatRate(seats: number) {
   return (SEAT_TIERS.find((t) => seats >= t.from) ?? SEAT_TIERS[SEAT_TIERS.length - 1]).cents;
 }
 
+/** Discount (whole percent) off the standard seat price for a purchase of `seats`. */
+export function seatDiscount(seats: number) {
+  const base = SEAT_TIERS[SEAT_TIERS.length - 1].cents;
+  return Math.round((1 - seatRate(seats) / base) * 100);
+}
+
 /** Total price (cents) for `seats` extra seats. */
 export function seatPrice(seats: number) {
   return seats * seatRate(seats);

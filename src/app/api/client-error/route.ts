@@ -24,6 +24,8 @@ const NOISE = [
   /zaloJSV2/i,
   /^Script error\.?$/i,
   /ResizeObserver loop/i,
+  // Old tab after a new deployment; the page reloads itself.
+  /Server Action .* was not found on the server|UnrecognizedActionError/i,
   /chrome-extension:|moz-extension:|safari-extension:/i,
 ];
 

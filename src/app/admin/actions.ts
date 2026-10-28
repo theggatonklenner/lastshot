@@ -7,7 +7,9 @@ import { admin } from "@/lib/supabase/admin";
 import { assertAdmin } from "@/lib/server/admin-auth";
 import { removeObjects, allPhotoFiles } from "@/lib/server/media";
 import { deleteAccountCompletely, deleteEventsCompletely } from "@/lib/server/cleanup";
-import { sendDueGalleryEmails } from "@/lib/server/gallery-emails";
+import { sendDueGalleryEmails, sendDueGallerySms } from "@/lib/server/gallery-emails";
+import { galleryReadySms, sendSmsBatch, smsConfigured } from "@/lib/server/sms";
+import { formatPhone, normalisePhone } from "@/lib/phone";
 import { emailConfigured, galleryReadyEmail, sendBatch } from "@/lib/server/email";
 import { siteUrl } from "@/lib/env";
 
@@ -218,6 +220,53 @@ export async function setEventAddons(eventId: string, flags: unknown): Promise<R
     if (error) throw new Error(error.message);
     revalidatePath("/admin", "layout");
     return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Sends a test text to a number the admin types in. */
+export async function sendTestSms(phone: string): Promise<Result<{ to: string }>> {
+  try {
+    await assertAdmin();
+    const to = normalisePhone(phone);
+    if (!to) throw new Error("Enter a mobile number, like 0412 345 678.");
+    if (!smsConfigured()) throw new Error("Add CLICKSEND_USERNAME and CLICKSEND_API_KEY in Vercel, then redeploy.");
+    const res = await sendSmsBatch([
+      { to, body: galleryReadySms("Lastshot test event", `${siteUrl()}/try`), ref: `test-${Date.now()}` },
+    ]);
+    if (!res.ok) throw new Error(res.error);
+    if (res.accepted.size === 0) throw new Error(`ClickSend didn't accept it: ${[...res.errors.values()][0] ?? "unknown reason"}`);
+    return { ok: true, data: { to: formatPhone(to) } };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Retries texts that gave up, then runs the sender. */
+export async function retryFailedSms(): Promise<Result<{ sent: number; failed: number }>> {
+  try {
+    await assertAdmin();
+    await admin()
+      .from("guest_sms")
+      .update({ attempts: 0, last_error: null, sending_started_at: null })
+      .is("sent_at", null)
+      .is("unsubscribed_at", null)
+      .gte("attempts", 5);
+    const s = await sendDueGallerySms({ limit: 200 });
+    revalidatePath("/admin/sms");
+    return { ok: true, data: { sent: s.sent, failed: s.failed } };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function runSmsSender(): Promise<Result<{ sent: number; failed: number; skipped?: string }>> {
+  try {
+    await assertAdmin();
+    const s = await sendDueGallerySms({ limit: 200 });
+    revalidatePath("/admin/sms");
+    return { ok: true, data: { sent: s.sent, failed: s.failed, skipped: "skipped" in s ? s.skipped : undefined } };
   } catch (e) {
     return fail(e);
   }

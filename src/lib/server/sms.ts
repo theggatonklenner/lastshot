@@ -54,3 +54,21 @@ export function galleryReadySms(eventTitle: string, galleryUrl: string) {
   const title = eventTitle.length > 32 ? `${eventTitle.slice(0, 31)}…` : eventTitle;
   return `${title}: your photos are ready. See them here: ${galleryUrl}`;
 }
+
+/** ClickSend account balance, or null if it can't be read. */
+export async function smsBalance(): Promise<{ balance: string; currency: string } | null> {
+  if (!smsConfigured()) return null;
+  const auth = Buffer.from(`${process.env.CLICKSEND_USERNAME}:${process.env.CLICKSEND_API_KEY}`).toString("base64");
+  try {
+    const res = await fetch("https://rest.clicksend.com/v3/account", {
+      headers: { Authorization: `Basic ${auth}` },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { data?: { balance?: string | number; _currency?: { currency_name_short?: string } } };
+    if (json.data?.balance === undefined) return null;
+    return { balance: String(json.data.balance), currency: json.data._currency?.currency_name_short ?? "AUD" };
+  } catch {
+    return null;
+  }
+}

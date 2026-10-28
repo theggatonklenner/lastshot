@@ -10,6 +10,7 @@ import { Countdown } from "@/components/countdown";
 import { GuestMessage, guestButton } from "@/components/guest/guest-shell";
 import { EmailCapture } from "@/components/guest/email-capture";
 import { SmsCapture } from "@/components/guest/sms-capture";
+import { PushOptIn } from "@/components/guest/push-opt-in";
 import { AddToHomeHint } from "@/components/guest/add-to-home";
 
 export const metadata: Metadata = { title: "Roll finished", robots: { index: false } };
@@ -39,6 +40,9 @@ export default async function DonePage({ params }: PageProps<"/e/[code]/done">) 
     );
   }
   const bonusLater = accepting && bonusPending(event) && event.bonus_at;
+  // Offer a notification while the photos are still to come (it includes the home screen steps on iPhone).
+  const wantsPush =
+    event.gallery_visibility !== "private" && !(access.allowed && (event.status === "ended" || event.reveal_mode !== "live"));
   const mysteryLater = accepting && event.mystery_at && !isPast(event.mystery_at) ? event.mystery_at : null;
   // Offer the retake if it's still possible (last photo within the window).
   let canRetake = false;
@@ -104,10 +108,16 @@ export default async function DonePage({ params }: PageProps<"/e/[code]/done">) 
       )}
       <p className="mt-3">{galleryLine}</p>
       {canRetake && <RetakeButton code={code} />}
-      {galleryHref && (
+      {wantsPush ? (
         <div className="mt-6">
-          <AddToHomeHint />
+          <PushOptIn code={code} />
         </div>
+      ) : (
+        galleryHref && (
+          <div className="mt-6">
+            <AddToHomeHint />
+          </div>
+        )
       )}
       {event.addon_sms && event.gallery_visibility !== "private" && (
         <div className="mt-6">

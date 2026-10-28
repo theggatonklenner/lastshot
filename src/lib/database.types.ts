@@ -67,6 +67,8 @@ type EventRow = {
   film_looks: FilmLookId[];
   addon_export: boolean;
   addon_setup: boolean;
+  starts_at: string | null;
+  lock_until_start: boolean;
   lead_questions: LeadQuestion[];
 };
 
@@ -368,6 +370,30 @@ export type Database = {
         Update: Partialize<CreditUseRow>;
         Relationships: [];
       };
+      app_secrets: {
+        Row: { key: string; value: string; created_at: string };
+        Insert: { key: string; value: string; created_at?: string };
+        Update: { value?: string };
+        Relationships: [];
+      };
+      guest_push: {
+        Row: {
+          id: string;
+          event_id: string;
+          guest_id: string | null;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          created_at: string;
+          sending_started_at: string | null;
+          sent_at: string | null;
+          attempts: number;
+          last_error: string | null;
+        };
+        Insert: { event_id: string; guest_id?: string | null; endpoint: string; p256dh: string; auth: string };
+        Update: { sending_started_at?: string | null; sent_at?: string | null; last_error?: string | null; attempts?: number };
+        Relationships: [];
+      };
       marketing_contacts: {
         Row: {
           id: string;
@@ -459,6 +485,10 @@ export type Database = {
         Returns: { photo_id: string; storage_path: string | null; display_path: string | null; thumbnail_path: string | null; shots_used: number }[];
       };
       add_guest_phone: { Args: { p_guest_id: string; p_phone: string }; Returns: SmsRow };
+      claim_gallery_push: {
+        Args: { p_event_id: string | null; p_limit: number };
+        Returns: { id: string; event_id: string; endpoint: string; p256dh: string; auth: string; event_code: string; event_title: string }[];
+      };
       claim_gallery_sms: {
         Args: { p_event_id: string | null; p_limit: number };
         Returns: { id: string; event_id: string; phone: string; event_code: string; event_title: string }[];

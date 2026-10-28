@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { loadGuestContext } from "@/lib/server/guest-page";
 import { loadGalleryPage } from "@/lib/server/gallery";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, formatEventDate } from "@/lib/format";
 import { GuestMessage, GuestShell, guestButton, guestSecondary } from "@/components/guest/guest-shell";
 import { RevealWait } from "./reveal-wait";
 import { GalleryView } from "./gallery-view";
@@ -81,6 +81,7 @@ export default async function GalleryPage({ params }: PageProps<"/e/[code]/galle
           downloads={downloads}
           showNames={event.show_guest_names}
           canMine={!!ctx.guest && !ctx.guest.blocked}
+          dateLine={event.event_date ? formatEventDate(event.event_date, null, null) : ""}
         />
       </div>
     </GuestShell>

@@ -3,7 +3,11 @@
 import type { EventRecord, EventType } from "@/lib/database.types";
 
 type RevealFields = Pick<EventRecord, "reveal_mode" | "reveal_at" | "revealed_at">;
-type SubmissionFields = Pick<EventRecord, "status" | "submissions_closed_at"> & { suspended_at?: string | null };
+type SubmissionFields = Pick<EventRecord, "status" | "submissions_closed_at"> & {
+  suspended_at?: string | null;
+  lock_until_start?: boolean;
+  starts_at?: string | null;
+};
 type VisibilityFields = RevealFields &
   Pick<EventRecord, "gallery_visibility" | "status"> & { suspended_at?: string | null };
 
@@ -18,8 +22,23 @@ export function galleryRevealed(e: RevealFields, now = new Date()): boolean {
   }
 }
 
-export function acceptingSubmissions(e: SubmissionFields): boolean {
-  return (e.status === "published" || e.status === "active") && !e.submissions_closed_at && !e.suspended_at;
+export function acceptingSubmissions(e: SubmissionFields, now = new Date()): boolean {
+  return (
+    (e.status === "published" || e.status === "active") &&
+    !e.submissions_closed_at &&
+    !e.suspended_at &&
+    !cameraLocked(e, now)
+  );
+}
+
+/** Cameras stay locked until the start time when the organiser asks for it. */
+export function cameraLocked(e: { lock_until_start?: boolean; starts_at?: string | null }, now = new Date()) {
+  return !!e.lock_until_start && !!e.starts_at && now.getTime() < new Date(e.starts_at).getTime();
+}
+
+/** Show the save-the-date countdown: the event has a start time that hasn't arrived yet. */
+export function beforeStart(e: { starts_at?: string | null }, now = new Date()) {
+  return !!e.starts_at && now.getTime() < new Date(e.starts_at).getTime();
 }
 
 export type GalleryAccess =

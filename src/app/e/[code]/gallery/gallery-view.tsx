@@ -8,6 +8,7 @@ import { Lightbox } from "@/components/lightbox";
 import { ReportDialog } from "@/components/guest/report-dialog";
 import { cx } from "@/components/ui";
 import { makeCollage, type CollageLayout } from "@/lib/client/collage";
+import { makeStoryCard } from "@/lib/client/story-card";
 
 type Photo = {
   id: string;
@@ -32,7 +33,9 @@ export function GalleryView({
   downloads,
   showNames,
   canMine,
+  dateLine = "",
 }: {
+  dateLine?: string;
   code: string;
   title: string;
   timezone: string;
@@ -46,7 +49,21 @@ export function GalleryView({
   const [picking, setPicking] = useState(false);
   const [picked, setPicked] = useState<string[]>([]);
   const [layout, setLayout] = useState<CollageLayout>("grid");
-  const [collage, setCollage] = useState<{ url: string; blob: Blob } | null>(null);
+  const [collage, setCollage] = useState<{ url: string; blob: Blob; kind?: "story" } | null>(null);
+  const [storyBusy, setStoryBusy] = useState(false);
+
+  async function storyCard(src: string) {
+    setStoryBusy(true);
+    try {
+      const blob = await makeStoryCard(src, { title, dateLine });
+      setViewer(null);
+      setCollage({ url: URL.createObjectURL(blob), blob, kind: "story" });
+    } catch {
+      setError("Couldn't make the story image. Try again.");
+    } finally {
+      setStoryBusy(false);
+    }
+  }
   const [making, setMaking] = useState(false);
   const [sort, setSort] = useState<Sort>("newest");
   const [photos, setPhotos] = useState<Photo[]>(initial.photos);
@@ -178,7 +195,7 @@ export function GalleryView({
 
   async function shareCollage() {
     if (!collage) return;
-    const file = new File([collage.blob], `${title.replace(/[^\w]+/g, "-")}-collage.jpg`, { type: "image/jpeg" });
+    const file = new File([collage.blob], `${title.replace(/[^\w]+/g, "-")}-${collage.kind ?? "collage"}.jpg`, { type: "image/jpeg" });
     try {
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file], title });
@@ -364,6 +381,15 @@ export function GalleryView({
                     Report
                   </button>
                 )}
+                {p && (
+                  <button
+                    className="h-10 rounded-full bg-flash px-4 font-semibold text-body disabled:opacity-60"
+                    disabled={storyBusy}
+                    onClick={() => storyCard(p.displayUrl)}
+                  >
+                    {storyBusy ? "Making it" : "Share to story"}
+                  </button>
+                )}
                 {downloads && p?.originalUrl && (
                   <button
                     className="h-10 rounded-full bg-cream/10 px-4 font-semibold hover:bg-cream/20"
@@ -384,7 +410,16 @@ export function GalleryView({
       {collage && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-black/90 p-4" role="dialog" aria-label="Your collage">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={collage.url} alt="Your collage" className="max-h-[72dvh] max-w-full rounded-[8px] object-contain shadow-2xl" />
+          <img
+            src={collage.url}
+            alt={collage.kind === "story" ? "Your story image" : "Your collage"}
+            className="max-h-[72dvh] max-w-full rounded-[8px] object-contain shadow-2xl"
+          />
+          {collage.kind === "story" && (
+            <p className="max-w-xs text-center text-sm text-cream-dim">
+              Tap Save or share, then pick Instagram and choose Story. On a computer it downloads instead.
+            </p>
+          )}
           <div className="flex flex-wrap justify-center gap-2">
             <button onClick={shareCollage} className="h-12 rounded-full bg-flash px-6 font-bold text-body">
               Save or share

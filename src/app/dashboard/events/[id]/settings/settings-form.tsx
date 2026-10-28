@@ -34,6 +34,7 @@ function toInput(e: EventRecord): EventInputType {
     theme: e.theme as EventInputType["theme"],
     accent_color: e.accent_color,
     film_looks: e.film_looks ?? [],
+    lock_until_start: e.lock_until_start ?? false,
   };
 }
 

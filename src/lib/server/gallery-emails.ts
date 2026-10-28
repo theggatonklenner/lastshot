@@ -1,4 +1,5 @@
 import "server-only";
+import { sendDueGalleryPush } from "@/lib/server/push";
 import { admin } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/env";
 import { createHmac } from "node:crypto";
@@ -23,6 +24,7 @@ export type SendSummary = {
   failed: number;
   skipped?: "not_configured";
   sms?: { claimed: number; sent: number; failed: number; skipped?: "not_configured" };
+  push?: { claimed: number; sent: number; failed: number };
 };
 
 /**
@@ -35,8 +37,12 @@ export async function sendDueGalleryEmails(opts: { eventId?: string; limit?: num
     console.error("gallery sms failed", e);
     return { claimed: 0, sent: 0, failed: 0 };
   });
+  const push = await sendDueGalleryPush(opts).catch((e) => {
+    console.error("gallery push failed", e);
+    return { claimed: 0, sent: 0, failed: 0 };
+  });
   const email = await sendDueEmailsOnly(opts);
-  return { ...email, sms };
+  return { ...email, sms, push };
 }
 
 async function sendDueEmailsOnly(opts: { eventId?: string; limit?: number }): Promise<SendSummary> {

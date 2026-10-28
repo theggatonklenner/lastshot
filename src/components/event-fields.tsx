@@ -69,6 +69,19 @@ export function BasicsFields({ value, set, errors }: Props) {
           />
         </Field>
       </div>
+      {value.event_date && value.start_time ? (
+        <Toggle
+          checked={!!value.lock_until_start}
+          onChange={(v) => set("lock_until_start", v)}
+          label="Lock cameras until the start time"
+          description="Before then, the link shows a save-the-date countdown with an Add to calendar button. Guests can't take photos until it starts."
+        />
+      ) : (
+        <p className="text-sm text-graphite">
+          Add a date and start time and guests who open the link early see a save-the-date countdown with an Add to calendar
+          button.
+        </p>
+      )}
       <Field label="Note for guests (optional)" htmlFor="description" hint="Shown on the page guests see after scanning.">
         <Textarea
           id="description"

@@ -1,3 +1,6 @@
+import { beforeStart, cameraLocked, galleryRevealed } from "@/lib/rules";
+import { googleCalendarUrl } from "@/lib/calendar";
+import { SaveTheDate } from "./save-the-date";
 import { formatDateTime, formatEventDate } from "@/lib/format";
 import type { EventRecord } from "@/lib/database.types";
 import { GuestShell, type GuestBrand } from "./guest-shell";
@@ -12,7 +15,10 @@ export function GuestLanding({
   preview,
   previewCameraHref,
   brand,
+  link,
 }: {
+  /** The guest link, for the calendar entry. */
+  link?: string;
   event: EventRecord;
   coverUrl: string | null;
   joined: { displayName: string | null; shotsUsed: number; shotsLimit: number } | null;
@@ -54,6 +60,16 @@ export function GuestLanding({
             )}
           </p>
         </div>
+        {!preview && beforeStart(event) && event.starts_at && (
+          <SaveTheDate
+            code={event.code}
+            startsAt={event.starts_at}
+            whenText={formatStart(event.starts_at, event.timezone)}
+            locked={cameraLocked(event)}
+            googleUrl={googleCalendarUrl(event, link ?? "")}
+          />
+        )}
+        {!(cameraLocked(event) && !preview) && (
         <JoinPanel
           code={event.code}
           limit={event.photos_per_guest}
@@ -66,8 +82,18 @@ export function GuestLanding({
           emailCapture={event.email_capture_enabled && event.gallery_visibility !== "private"}
           smsCapture={event.addon_sms && event.gallery_visibility !== "private"}
           questions={event.addon_export ? (event.lead_questions ?? []) : []}
+          pushCapture={event.gallery_visibility !== "private" && (event.reveal_mode !== "live" ? !galleryRevealed(event) : event.status !== "ended" && event.status !== "archived")}
         />
+        )}
       </div>
     </GuestShell>
   );
+}
+
+/** "Saturday 7 November at 6:00 pm" in the event's time zone. */
+function formatStart(iso: string, timeZone: string) {
+  const d = new Date(iso);
+  const day = new Intl.DateTimeFormat("en-AU", { weekday: "long", day: "numeric", month: "long", timeZone }).format(d);
+  const time = new Intl.DateTimeFormat("en-AU", { hour: "numeric", minute: "2-digit", timeZone }).format(d);
+  return `${day} at ${time}`;
 }

@@ -72,6 +72,7 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
             ? `${guests} ${guests === 1 ? "guest has" : "guests have"} joined. There's no limit on this plan.`
             : `${guests} of ${limit} cameras taken${event.extra_guests ? ` (${current.guests} on the plan plus ${event.extra_guests} extra seats)` : ""}. When it's full, new guests see "This event is full" and you get an email.`}{" "}
           Pay once per event. Upgrading takes effect straight away, even mid-event, and you only pay the difference.
+          {event.plan === "free" && " It also removes the watermark from every photo, including ones already taken."}
         </p>
       </div>
 
@@ -98,7 +99,9 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
               <ul className="flex flex-col gap-1.5 text-[15px]">
                 <li className="font-semibold">{p.guests === null ? "Unlimited guests" : `Up to ${p.guests} guests`}</li>
                 <li className="text-graphite">{p.blurb}</li>
-                <li className="text-graphite">Every feature included</li>
+                <li className="text-graphite">
+                  {p.id === "free" ? "Photos carry a small Lastshot watermark" : "No watermark, every feature included"}
+                </li>
               </ul>
               <div className="mt-auto">
                 {!isCurrent && !lower && p.id !== "free" && (

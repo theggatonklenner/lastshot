@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { ownedEventForApi } from "@/lib/server/organiser";
 import { jsonError } from "@/lib/server/http";
-import { signPaths } from "@/lib/server/media";
+import { servedPath, signPaths } from "@/lib/server/media";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/events/[id]
 
   const { data, error } = await owned.supabase
     .from("photos")
-    .select("id, display_path, uploaded_at")
+    .select("id, display_path, uploaded_at, watermarked")
     .eq("event_id", owned.event.id)
     .eq("upload_status", "complete")
     .eq("moderation_status", "approved")
@@ -26,7 +26,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/events/[id]
 
   const rows = (data ?? []).filter((p) => p.display_path);
   const urls = await signPaths(
-    rows.map((p) => p.display_path),
+    rows.map((p) => servedPath(p.display_path, p, owned.event)),
     60 * 60 * 2,
   );
   return Response.json(

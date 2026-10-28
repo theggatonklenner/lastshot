@@ -1,6 +1,6 @@
 import "server-only";
 import { admin } from "@/lib/supabase/admin";
-import { removeObjects } from "@/lib/server/media";
+import { allPhotoFiles, removeObjects } from "@/lib/server/media";
 
 /**
  * Permanently deletes events with every photo file, guest, email and report.
@@ -16,7 +16,7 @@ export async function deleteEventsCompletely(eventIds: string[]): Promise<{ even
   ]);
   const files = [
     ...(events ?? []).map((e) => e.cover_image_path),
-    ...(photos ?? []).flatMap((p) => [p.storage_path, p.display_path, p.thumbnail_path]),
+    ...(photos ?? []).flatMap(allPhotoFiles),
   ].filter((f): f is string => !!f);
 
   const { error } = await db.from("events").delete().in("id", eventIds);

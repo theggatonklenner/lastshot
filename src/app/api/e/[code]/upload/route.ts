@@ -3,7 +3,7 @@ import { admin } from "@/lib/supabase/admin";
 import { dbErrorCode, getEventAndGuest, rateLimit } from "@/lib/server/guest";
 import { shotLimit } from "@/lib/rules";
 import { guestError, jsonError } from "@/lib/server/http";
-import { InvalidImageError, MAX_UPLOAD_BYTES, photoPaths, processImage, putObject } from "@/lib/server/media";
+import { InvalidImageError, MAX_UPLOAD_BYTES, photoPaths, processImage, putObject, watermarkedPath } from "@/lib/server/media";
 
 export const maxDuration = 30;
 
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/e/[code]/up
   // Process the image and claim the shot at the same time.
   const bytes = Buffer.from(await file.arrayBuffer());
   const [processedResult, claimResult] = await Promise.all([
-    processImage(bytes).then(
+    processImage(bytes, { watermark: event.plan === "free" }).then(
       (value) => ({ ok: true as const, value }),
       (error: unknown) => ({ ok: false as const, error }),
     ),
@@ -105,7 +105,13 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/e/[code]/up
       putObject(paths.original, processed.original),
       putObject(paths.display, processed.display),
       putObject(paths.thumb, processed.thumb),
+      processed.originalWm ? putObject(watermarkedPath(paths.original), processed.originalWm) : null,
+      processed.displayWm ? putObject(watermarkedPath(paths.display), processed.displayWm) : null,
     ]);
+    if (processed.originalWm) {
+      const { error: wmError } = await admin().from("photos").update({ watermarked: true }).eq("id", claim.photo_id);
+      if (wmError) throw new Error(wmError.message);
+    }
     const { error } = await admin().rpc("complete_photo_upload", {
       p_photo_id: claim.photo_id,
       p_storage_path: paths.original,

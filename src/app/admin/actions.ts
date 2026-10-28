@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { admin } from "@/lib/supabase/admin";
 import { assertAdmin } from "@/lib/server/admin-auth";
-import { removeObjects } from "@/lib/server/media";
+import { removeObjects, allPhotoFiles } from "@/lib/server/media";
 import { deleteAccountCompletely, deleteEventsCompletely } from "@/lib/server/cleanup";
 import { sendDueGalleryEmails } from "@/lib/server/gallery-emails";
 import { emailConfigured, galleryReadyEmail, sendBatch } from "@/lib/server/email";
@@ -77,7 +77,7 @@ export async function adminDeletePhotos(eventId: string, ids: string[]): Promise
     if (!photos?.length) return { ok: true, data: { deleted: 0 } };
     const { error } = await db.from("photos").delete().in("id", photos.map((p) => p.id));
     if (error) throw new Error(error.message);
-    await removeObjects(photos.flatMap((p) => [p.storage_path, p.display_path, p.thumbnail_path])).catch(() => {});
+    await removeObjects(photos.flatMap(allPhotoFiles)).catch(() => {});
     revalidatePath(`/admin/events/${eventId}`);
     return { ok: true, data: { deleted: photos.length } };
   } catch (e) {

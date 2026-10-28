@@ -149,6 +149,10 @@ Upgrading uses Stripe Checkout (`/dashboard/events/<id>/upgrade`). Organisers pa
 
 On any plan except Unlimited, organisers can add 5 to 500 extra seats with a slider on the upgrade page. The more they add, the less each seat costs: $2 (5–45), $1.50 (50–145), $1 (150+); see `SEAT_TIERS` in `src/lib/plans.ts`. The server recalculates the price, so the slider can't be tampered with. Paid seats are added to `events.extra_guests` by `fulfil_payment()`, and `event_guest_limit()` (plan limit plus extra seats) is what `guest_join` checks. If a bigger plan would cost less than the seats chosen, the page suggests it.
 
+### Watermarks
+
+Photos taken at events on the Free plan also get watermarked copies (`original.wm.jpg`, `display.wm.jpg`, with a "Made with lastshot.app" badge bottom-left) and `photos.watermarked` is set. While the event is on Free, guests, the slideshow and all downloads get the watermarked files (`servedPath()` in `src/lib/server/media.ts`); thumbnails and the organiser's dashboard view stay clean. Upgrading switches every photo to the clean file straight away, since the clean originals are always kept.
+
 ### Bonus shots
 
 Organisers can add extra shots that unlock at a set time. `event_shot_limit()` adds them once `bonus_at` has passed, and `claim_photo_slot()` uses it, so the limit is still enforced in Postgres.

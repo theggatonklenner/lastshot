@@ -102,6 +102,7 @@ type PhotoRow = {
   upload_status: UploadStatus;
   uploaded_at: string | null;
   width: number | null;
+  watermarked: boolean;
 };
 
 type ProfileRow = {

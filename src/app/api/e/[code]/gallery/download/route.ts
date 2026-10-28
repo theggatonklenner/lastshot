@@ -3,7 +3,7 @@ import { admin } from "@/lib/supabase/admin";
 import { clientIp, getEventByCode, hashIp, rateLimit } from "@/lib/server/guest";
 import { guestError, jsonError } from "@/lib/server/http";
 import { resolveGalleryViewer } from "@/lib/server/gallery";
-import { signPaths } from "@/lib/server/media";
+import { servedPath, signPaths } from "@/lib/server/media";
 
 /** Signed links for every downloadable original, used to build ZIP files in the browser. */
 export async function GET(_req: NextRequest, ctx: RouteContext<"/api/e/[code]/gallery/download">) {
@@ -20,7 +20,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/e/[code]/ga
 
   const { data, error } = await admin()
     .from("photos")
-    .select("id, storage_path, captured_at")
+    .select("id, storage_path, captured_at, watermarked")
     .eq("event_id", event.id)
     .eq("upload_status", "complete")
     .eq("moderation_status", "approved")
@@ -28,7 +28,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/e/[code]/ga
     .limit(5000);
   if (error) return guestError("server_error");
 
-  const urls = await signPaths((data ?? []).map((p) => p.storage_path), 60 * 30);
+  const urls = await signPaths((data ?? []).map((p) => servedPath(p.storage_path, p, event)), 60 * 30);
   const files = (data ?? []).map((p, i) => ({
     name: `${String(i + 1).padStart(4, "0")}.jpg`,
     url: urls[i],

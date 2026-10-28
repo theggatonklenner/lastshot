@@ -192,8 +192,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             <div className="flex flex-col gap-3">
               <h2 className="display-md text-[clamp(30px,4.5vw,48px)]">Pay per event, not per month</h2>
               <p className="max-w-[52ch] text-lg text-graphite">
-                Start free. If more guests are coming, upgrade the event once, even halfway through the night. Every
-                plan has every feature; only the number of cameras changes.
+                Start free. If more guests are coming, upgrade the event once, even halfway through the night. Paid
+                plans remove the watermark, and every plan has every feature.
               </p>
             </div>
             <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -217,6 +217,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                   </p>
                   <p className="font-semibold">{p.guests === null ? "Unlimited guests" : `Up to ${p.guests} guests`}</p>
                   <p className="text-graphite">{p.blurb}</p>
+                  <p className="mt-auto text-sm text-graphite">{p.id === "free" ? "Small Lastshot watermark on photos" : "No watermark"}</p>
                 </div>
               ))}
             </div>

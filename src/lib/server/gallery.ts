@@ -3,7 +3,7 @@ import { isEventOrganiser } from "@/lib/server/organiser";
 import { admin } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { getGuestForEvent, hasViewPass } from "@/lib/server/guest";
-import { signPaths } from "@/lib/server/media";
+import { signPaths, servedPath } from "@/lib/server/media";
 import { galleryAccess, type GalleryAccess } from "@/lib/rules";
 import type { EventRecord } from "@/lib/database.types";
 
@@ -40,7 +40,7 @@ export async function loadGalleryPage(
   const limit = opts.limit ?? PAGE_SIZE;
   let q = admin()
     .from("photos")
-    .select("id, thumbnail_path, display_path, storage_path, width, height, captured_at, uploaded_at, guest_id", {
+    .select("id, thumbnail_path, display_path, storage_path, width, height, captured_at, uploaded_at, guest_id, watermarked", {
       count: "exact",
     })
     .eq("event_id", event.id)
@@ -66,7 +66,11 @@ export async function loadGalleryPage(
   }
 
   const signed = await signPaths(
-    rows.flatMap((r) => [r.thumbnail_path, r.display_path, opts.includeOriginals ? r.storage_path : null]),
+    rows.flatMap((r) => [
+      r.thumbnail_path,
+      servedPath(r.display_path, r, event),
+      opts.includeOriginals ? servedPath(r.storage_path, r, event) : null,
+    ]),
   );
 
   const photos: GalleryPhoto[] = rows.map((r, i) => ({

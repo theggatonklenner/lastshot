@@ -9,6 +9,7 @@ import { cx } from "@/components/ui";
 import { EMAIL_RE, EmailCapture, saveNotifyEmail } from "@/components/guest/email-capture";
 import { SmsCapture } from "@/components/guest/sms-capture";
 import { AddToHomeHint } from "@/components/guest/add-to-home";
+import { normalisePhone } from "@/lib/phone";
 
 type Joined = { displayName: string | null; shotsUsed: number; shotsLimit: number } | null;
 
@@ -40,6 +41,7 @@ export function JoinPanel({
   const [name, setName] = useState("");
   const [accessCode, setAccessCode] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -76,6 +78,15 @@ export function JoinPanel({
       setError("That email address doesn't look right. Fix it or leave it blank.");
       return;
     }
+    const mobile = phone.trim() ? normalisePhone(phone) : null;
+    if (phone.trim() && !mobile) {
+      setError("That mobile number doesn't look right. Fix it or leave it blank.");
+      return;
+    }
+    if (mobile && !mobile.startsWith("+614")) {
+      setError("Texts only go to Australian mobiles. Leave the number blank or use an Australian one.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -88,6 +99,13 @@ export function JoinPanel({
       if (!res.ok) throw new Error(json.message ?? "Couldn't join. Try again.");
       saveGuestToken(code, json.token);
       if (email.trim()) await saveNotifyEmail(code, email.trim()).catch(() => null);
+      if (mobile) {
+        await fetch(`/api/e/${code}/sms`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-lastshot-guest": json.token },
+          body: JSON.stringify({ phone: mobile }),
+        }).catch(() => null);
+      }
       router.push(`/e/${code}/camera`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't join. Try again.");
@@ -159,6 +177,22 @@ export function JoinPanel({
             placeholder="We'll send one link when they're ready"
             className="h-13 rounded-[14px] border border-cream/20 bg-body-2 px-4 text-lg text-cream placeholder:text-cream/40 focus:border-flash focus:outline-none"
           />
+        </label>
+      )}
+      {smsCapture && (
+        <label className="flex flex-col gap-2">
+          <span className="font-semibold">Text me when the photos are ready (optional)</span>
+          <input
+            type="tel"
+            inputMode="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            maxLength={20}
+            autoComplete="tel"
+            placeholder="0412 345 678"
+            className="h-13 rounded-[14px] border border-cream/20 bg-body-2 px-4 text-lg text-cream placeholder:text-cream/40 focus:border-flash focus:outline-none"
+          />
+          <span className="text-sm text-cream-dim">Australian mobiles only. One text with a private link.</span>
         </label>
       )}
       {needsCode && (

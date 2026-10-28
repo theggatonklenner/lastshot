@@ -104,7 +104,15 @@ export function SettingsForm({
             Changing the shot limit applies from now on. A guest who already used more than the new limit simply has no
             shots left; none of their photos are removed.
           </p>
-          <RollFields value={value} set={set} />
+          <RollFields
+            value={value}
+            set={set}
+            frame={
+              event.addon_frame && (event.frame_text || event.frame_subtext)
+                ? { text: event.frame_text, subtext: event.frame_subtext, color: event.frame_color }
+                : null
+            }
+          />
         </Panel>
         <Panel>
           <h2 className="mb-5 text-xl font-bold">Gallery and privacy</h2>

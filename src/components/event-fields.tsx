@@ -5,6 +5,8 @@ import { EVENT_TYPES } from "@/lib/rules";
 import { THEMES, type ThemeId } from "@/lib/themes";
 import { isoToLocalInput, localInputToIso } from "@/lib/format";
 import { Choice, Field, Input, Select, Textarea, Toggle, cx } from "@/components/ui";
+import { FilterPreview } from "@/components/filter-preview";
+import type { PhotoFrame } from "@/lib/client/develop";
 
 type Props = {
   value: EventInputType;
@@ -79,7 +81,7 @@ export function BasicsFields({ value, set, errors }: Props) {
 
 const SHOT_PRESETS = [8, 12, 24, 27];
 
-export function RollFields({ value, set, errors }: Props) {
+export function RollFields({ value, set, errors, frame }: Props & { frame?: PhotoFrame | null }) {
   return (
     <div className="flex flex-col gap-8">
       <Field
@@ -262,6 +264,8 @@ export function RollFields({ value, set, errors }: Props) {
           description="Guests can add existing photos. They still count towards the shot limit."
         />
       </div>
+
+      <FilterPreview themeId={value.theme} accent={value.accent_color} dateStamp={value.date_stamp_enabled} frame={frame} />
     </div>
   );
 }

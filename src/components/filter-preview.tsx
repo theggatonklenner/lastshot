@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { develop, drawFrame, type PhotoFrame } from "@/lib/client/develop";
+import { develop, drawFrame, renderLook, type PhotoFrame } from "@/lib/client/develop";
 import { decodeFile } from "@/lib/client/image";
 import { resolveTheme } from "@/lib/themes";
 import { cx } from "@/components/ui";
@@ -103,6 +103,67 @@ export function FilterPreview({
   // Compare the frame by value, so a parent re-render doesn't redraw the preview.
   const frameKey = frame && (frame.text || frame.subtext) ? JSON.stringify(frame) : "";
 
+  // Live camera: draws the look onto a canvas several times a second.
+  const [live, setLive] = useState(false);
+  const [liveError, setLiveError] = useState<string | null>(null);
+  const liveCanvas = useRef<HTMLCanvasElement>(null);
+  const settings = useRef({ themeId, accent, dateStamp, frameKey, showOriginal });
+  useEffect(() => {
+    settings.current = { themeId, accent, dateStamp, frameKey, showOriginal };
+  }, [themeId, accent, dateStamp, frameKey, showOriginal]);
+
+  useEffect(() => {
+    if (!live) return;
+    let stream: MediaStream | null = null;
+    let raf = 0;
+    let stopped = false;
+    const video = document.createElement("video");
+    video.muted = true;
+    video.playsInline = true;
+    (async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 960 } }, audio: false });
+      } catch {
+        setLiveError("Couldn't open the camera. Check that this site is allowed to use it.");
+        setLive(false);
+        return;
+      }
+      if (stopped) return stream.getTracks().forEach((t) => t.stop());
+      video.srcObject = stream;
+      await video.play().catch(() => {});
+      await document.fonts?.load('800 40px "Archivo Variable"').catch(() => {});
+      let last = 0;
+      const tick = (t: number) => {
+        if (stopped) return;
+        raf = requestAnimationFrame(tick);
+        // About 15 frames a second is plenty for a preview and easy on phones.
+        if (t - last < 66 || !liveCanvas.current || video.readyState < 2) return;
+        last = t;
+        const st = settings.current;
+        renderLook(
+          video,
+          {
+            theme: resolveTheme(st.themeId, st.accent),
+            dateStamp: st.dateStamp,
+            frame: st.frameKey ? JSON.parse(st.frameKey) : null,
+            aspect: 3 / 4,
+            mirror: true,
+            original: st.showOriginal,
+          },
+          480,
+          liveCanvas.current,
+        );
+      };
+      raf = requestAnimationFrame(tick);
+    })();
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(raf);
+      stream?.getTracks().forEach((t) => t.stop());
+      video.srcObject = null;
+    };
+  }, [live]);
+
   useEffect(() => {
     const fr: PhotoFrame | null = frameKey ? JSON.parse(frameKey) : null;
     let cancelled = false;
@@ -138,7 +199,9 @@ export function FilterPreview({
   return (
     <div className="flex flex-col gap-3 rounded-control border border-line bg-card p-4 sm:flex-row sm:items-start sm:gap-5">
       <div className="relative w-full max-w-[220px] shrink-0 overflow-hidden rounded-[10px] bg-body sm:w-[200px]">
-        {url ? (
+        {live ? (
+          <canvas ref={liveCanvas} aria-label="Live preview from your camera" className="block h-auto w-full" />
+        ) : url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={url} alt="Preview of a photo with this camera style" className="block w-full" />
         ) : (
@@ -176,12 +239,29 @@ export function FilterPreview({
           </div>
           <button
             type="button"
-            onClick={() => input.current?.click()}
+            onClick={() => {
+              setLiveError(null);
+              setLive(!live);
+            }}
+            aria-pressed={live}
+            className={cx(
+              "rounded-full border px-3 py-1 text-sm font-semibold",
+              live ? "border-signal bg-signal text-white" : "border-line hover:border-ink/40",
+            )}
+          >
+            {live ? "Stop camera" : "Use my camera"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setLive(false);
+              input.current?.click();
+            }}
             className="rounded-full border border-line px-3 py-1 text-sm font-semibold hover:border-ink/40"
           >
             {own ? "Try another photo" : "Try with your own photo"}
           </button>
-          {own && (
+          {own && !live && (
             <button type="button" onClick={() => setOwn(null)} className="px-2 text-sm font-semibold text-graphite hover:text-ink">
               Use sample
             </button>
@@ -198,7 +278,10 @@ export function FilterPreview({
             }}
           />
         </div>
-        <p className="text-xs text-graphite">Your photo stays on this device. It isn&apos;t uploaded.</p>
+        {liveError && <p className="text-sm text-signal">{liveError}</p>}
+        <p className="text-xs text-graphite">
+          {live ? "Live from your camera. Nothing is recorded or uploaded." : "Your photo stays on this device. It isn't uploaded."}
+        </p>
       </div>
     </div>
   );

@@ -223,3 +223,53 @@ export async function develop(src: Source, opts: DevelopOptions): Promise<Blob> 
   }
   throw new Error("That photo is too large to send.");
 }
+
+/**
+ * Same look as develop(), drawn straight to a canvas at a small size, for a
+ * live preview (no JPEG encoding). Fonts for the frame should already be loaded.
+ */
+export function renderLook(
+  src: Source,
+  opts: DevelopOptions & { original?: boolean },
+  maxSide: number,
+  into?: HTMLCanvasElement,
+): HTMLCanvasElement | null {
+  const { w: fullW, h: fullH } = sourceSize(src);
+  if (!fullW || !fullH) return null;
+  let sx = 0;
+  let sy = 0;
+  let sw = fullW;
+  let sh = fullH;
+  if (opts.aspect && opts.aspect > 0) {
+    if (fullW / fullH > opts.aspect) {
+      sw = Math.round(fullH * opts.aspect);
+      sx = Math.round((fullW - sw) / 2);
+    } else {
+      sh = Math.round(fullW / opts.aspect);
+      sy = Math.round((fullH - sh) / 2);
+    }
+  }
+  const { w, h } = fitWithin(sw, sh, maxSide);
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+  if (opts.mirror) {
+    ctx.translate(w, 0);
+    ctx.scale(-1, 1);
+  }
+  ctx.drawImage(src, sx, sy, sw, sh, 0, 0, w, h);
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (!opts.original) {
+    applyLook(ctx, w, h, opts.theme);
+    if (opts.dateStamp) drawStamp(ctx, w, h, opts.when ?? new Date());
+  }
+  const out = opts.frame && (opts.frame.text || opts.frame.subtext) ? drawFrame(canvas, opts.frame) : canvas;
+  if (!into) return out;
+  if (into.width !== out.width || into.height !== out.height) {
+    into.width = out.width;
+    into.height = out.height;
+  }
+  into.getContext("2d")!.drawImage(out, 0, 0);
+  return into;
+}

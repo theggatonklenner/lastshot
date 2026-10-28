@@ -29,11 +29,11 @@ describe("plans", () => {
 
 describe("extra seats", () => {
   it("gets cheaper per seat as you add more", () => {
-    expect(seatPrice(5)).toBe(1500);
-    expect(seatPrice(45)).toBe(13500);
-    expect(seatPrice(50)).toBe(12500);
-    expect(seatPrice(150)).toBe(30000);
-    expect(seatRate(500)).toBe(200);
+    expect(seatPrice(5)).toBe(1000);
+    expect(seatPrice(45)).toBe(9000);
+    expect(seatPrice(50)).toBe(7500);
+    expect(seatPrice(150)).toBe(15000);
+    expect(seatRate(500)).toBe(100);
   });
   it("only accepts slider values", () => {
     expect(validSeatCount(5)).toBe(true);

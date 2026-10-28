@@ -23,9 +23,9 @@ export const SEATS_MIN = 5;
 export const SEATS_MAX = 500;
 export const SEATS_STEP = 5;
 export const SEAT_TIERS = [
-  { from: 150, cents: 200 },
-  { from: 50, cents: 250 },
-  { from: 1, cents: 300 },
+  { from: 150, cents: 100 },
+  { from: 50, cents: 150 },
+  { from: 1, cents: 200 },
 ];
 
 /** Price per seat (cents) for a purchase of `seats`. */

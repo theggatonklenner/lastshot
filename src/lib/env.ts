@@ -13,12 +13,16 @@ export const publicEnv = {
   ),
 };
 
+/** The public home of the app. QR codes, share links and emails all point here. */
+export const PRODUCTION_URL = "https://lastshot.app";
+
 export function siteUrl(): string {
   const fromEnv = process.env.NEXT_PUBLIC_SITE_URL;
   if (fromEnv) return fromEnv.replace(/\/$/, "");
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
-  }
+  // Vercel production deployments always use the real domain, never the *.vercel.app address.
+  if (process.env.VERCEL_ENV === "production") return PRODUCTION_URL;
+  // Preview deployments use their own address so test QR codes work.
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
   return "http://localhost:3000";
 }
 

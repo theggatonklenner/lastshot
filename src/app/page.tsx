@@ -225,7 +225,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                 account either.
               </li>
               <li>
-                <span className="font-semibold text-ink">Upgrade mid-event.</span> You only pay the difference, and new
+                <span className="font-semibold text-ink">Upgrade mid-event.</span> It takes effect straight away, and new
                 guests can join straight away.
               </li>
               <li>

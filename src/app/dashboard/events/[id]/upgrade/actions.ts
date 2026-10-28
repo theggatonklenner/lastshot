@@ -1,48 +1,87 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { requireOwnedEvent } from "@/lib/server/organiser";
 import { admin } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/env";
 import { createCheckoutSession, stripeConfigured } from "@/lib/server/stripe";
-import { PLAN_ORDER, eventGuestLimit, planInfo, planRank, seatDiscount, seatPrice, upgradePrice, guestLimitText, validSeatCount, ADDONS, addonInfo, addonPrice, hasAddon } from "@/lib/plans";
+import { priceCart } from "@/lib/plans";
 import type { Addon, Plan } from "@/lib/database.types";
 
 export type CheckoutState = { error?: string } | undefined;
 
-/** Starts a Stripe Checkout for upgrading this event. Any organiser can pay. */
-export async function startCheckout(_prev: CheckoutState, form: FormData): Promise<CheckoutState> {
-  const id = String(form.get("eventId") ?? "");
-  const plan = String(form.get("plan") ?? "") as Plan;
-  const { event, user } = await requireOwnedEvent(id);
+const Cart = z.object({
+  plan: z.enum(["free", "small", "party", "big", "unlimited"]),
+  seats: z.number().int().min(0).max(500),
+  addons: z.array(z.enum(["frame", "branding", "storage", "storage1y", "sms"])).max(5),
+});
 
-  if (!PLAN_ORDER.includes(plan) || plan === "free") return { error: "Choose a plan." };
-  if (planRank(plan) <= planRank(event.plan)) return { error: "This event already has that plan or a bigger one." };
+/**
+ * One Stripe Checkout for everything in the order: a plan upgrade, extra seats
+ * and add-ons. The price is worked out here from the event as it is now, never
+ * taken from the browser. With `publish`, a draft event goes live once paid.
+ */
+export async function startCartCheckout(
+  eventId: string,
+  input: { plan: Plan; seats: number; addons: Addon[] },
+  opts: { publish?: boolean; from?: "new" } = {},
+): Promise<CheckoutState> {
+  const parsed = Cart.safeParse(input);
+  if (!parsed.success) return { error: "Check your order and try again." };
+  const { event, user } = await requireOwnedEvent(eventId);
+  if (event.suspended_at) return { error: "This event is suspended, so it can't be changed." };
+
+  const cart = priceCart(event, parsed.data);
+  if (cart.lines.length === 0 || cart.total === 0) return { error: "Choose something to add first." };
   if (!stripeConfigured()) return { error: "Payments aren't set up yet. Try again soon." };
-  if (event.suspended_at) return { error: "This event is suspended, so it can't be upgraded." };
 
-  const amount = upgradePrice(event.plan, plan);
-  const info = planInfo(plan);
   const base = `${siteUrl()}/dashboard/events/${event.id}/upgrade`;
+  const from = opts.from === "new" ? "&from=new" : "";
   let url: string | null = null;
   try {
     const session = await createCheckoutSession({
-      amountCents: amount,
-      productName: `Lastshot ${info.name}: ${event.title}`.slice(0, 120),
-      description:
-        event.plan === "free"
-          ? `${guestLimitText(plan)} for one event.`
-          : `Upgrade from ${planInfo(event.plan).name} to ${info.name}. ${guestLimitText(plan)}.`,
+      items: cart.lines.map((l) => ({ amountCents: l.cents, name: `${l.label}: ${event.title}`, description: l.detail })),
+      description: `Lastshot: ${event.title}`,
       email: user.email!,
-      successUrl: `${base}?paid=1&session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${base}?cancelled=1`,
-      metadata: { event_id: event.id, plan, from_plan: event.plan, user_id: user.id },
-      idempotencyKey: `checkout:${event.id}:${event.plan}:${plan}:${user.id}:${Math.floor(Date.now() / 600_000)}`,
+      successUrl: `${base}?paid=cart${from}&session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${base}?cancelled=1${from}`,
+      metadata: {
+        event_id: event.id,
+        kind: "bundle",
+        plan: cart.plan ?? "",
+        seats: String(cart.seats),
+        addons: cart.addons.join(","),
+        publish: opts.publish ? "1" : "0",
+        user_id: user.id,
+      },
+      idempotencyKey: [
+        "cart",
+        event.id,
+        event.plan,
+        event.extra_guests,
+        cart.plan ?? "-",
+        cart.seats,
+        [...cart.addons].sort().join("+"),
+        opts.publish ? "pub" : "",
+        user.id,
+        Math.floor(Date.now() / 600_000),
+      ].join(":"),
     });
     const { error } = await admin()
       .from("payments")
       .upsert(
-        { event_id: event.id, user_id: user.id, plan: plan as Exclude<Plan, "free">, amount_cents: amount, stripe_session_id: session.id },
+        {
+          event_id: event.id,
+          user_id: user.id,
+          kind: "bundle",
+          plan: cart.plan as Exclude<Plan, "free"> | null,
+          addons: cart.addons,
+          extra_guests: cart.seats,
+          amount_cents: cart.total,
+          stripe_session_id: session.id,
+          publish_on_paid: !!opts.publish,
+        },
         { onConflict: "stripe_session_id", ignoreDuplicates: true },
       );
     if (error) throw new Error(error.message);
@@ -52,148 +91,5 @@ export async function startCheckout(_prev: CheckoutState, form: FormData): Promi
     return { error: "Couldn't open the payment page. Try again in a minute." };
   }
   if (!url) return { error: "Couldn't open the payment page. Try again in a minute." };
-  redirect(url);
-}
-
-/** Starts a Stripe Checkout for extra seats on top of the event's plan. */
-export async function startSeatsCheckout(_prev: CheckoutState, form: FormData): Promise<CheckoutState> {
-  const id = String(form.get("eventId") ?? "");
-  const seats = Number(form.get("seats"));
-  const { event, user } = await requireOwnedEvent(id);
-
-  if (!validSeatCount(seats)) return { error: "Choose how many seats to add." };
-  if (eventGuestLimit(event) === null) return { error: "This event has no guest limit, so it doesn't need extra seats." };
-  if (!stripeConfigured()) return { error: "Payments aren't set up yet. Try again soon." };
-  if (event.suspended_at) return { error: "This event is suspended, so it can't be changed." };
-
-  const amount = seatPrice(seats);
-  const base = `${siteUrl()}/dashboard/events/${event.id}/upgrade`;
-  let url: string | null = null;
-  try {
-    const session = await createCheckoutSession({
-      amountCents: amount,
-      productName: `Lastshot: ${seats} extra seats for ${event.title}`.slice(0, 120),
-      description: seatDiscount(seats)
-        ? `${seats} more guests can join. Includes a ${seatDiscount(seats)}% bulk discount.`
-        : `${seats} more guests can join.`,
-      email: user.email!,
-      successUrl: `${base}?paid=seats&session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${base}?cancelled=1`,
-      metadata: { event_id: event.id, kind: "seats", seats: String(seats), user_id: user.id },
-      idempotencyKey: `seats:${event.id}:${seats}:${event.extra_guests}:${user.id}:${Math.floor(Date.now() / 600_000)}`,
-    });
-    const { error } = await admin()
-      .from("payments")
-      .upsert(
-        { event_id: event.id, user_id: user.id, kind: "seats", plan: null, extra_guests: seats, amount_cents: amount, stripe_session_id: session.id },
-        { onConflict: "stripe_session_id", ignoreDuplicates: true },
-      );
-    if (error) throw new Error(error.message);
-    url = session.url;
-  } catch (e) {
-    console.error("seats checkout failed", e);
-    return { error: "Couldn't open the payment page. Try again in a minute." };
-  }
-  if (!url) return { error: "Couldn't open the payment page. Try again in a minute." };
-  redirect(url);
-}
-
-/** Starts a Stripe Checkout for one add-on. */
-export async function startAddonCheckout(_prev: CheckoutState, form: FormData): Promise<CheckoutState> {
-  const id = String(form.get("eventId") ?? "");
-  const addon = String(form.get("addon") ?? "") as Addon;
-  const { event, user } = await requireOwnedEvent(id);
-
-  if (!ADDONS.some((a) => a.id === addon)) return { error: "Choose an add-on." };
-  if (hasAddon(event, addon)) return { error: "This event already has that add-on." };
-  if (!stripeConfigured()) return { error: "Payments aren't set up yet. Try again soon." };
-  if (event.suspended_at) return { error: "This event is suspended, so it can't be changed." };
-
-  const amount = addonPrice(addon, event);
-  const info = addonInfo(addon);
-  const base = `${siteUrl()}/dashboard/events/${event.id}/upgrade`;
-  let url: string | null = null;
-  try {
-    const session = await createCheckoutSession({
-      amountCents: amount,
-      productName: `Lastshot ${info.name}: ${event.title}`.slice(0, 120),
-      description: info.blurb,
-      email: user.email!,
-      successUrl: `${base}?paid=addon&addon=${addon}&session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${base}?cancelled=1`,
-      metadata: { event_id: event.id, kind: "addon", addon, user_id: user.id },
-      idempotencyKey: `addon:${event.id}:${addon}:${user.id}:${Math.floor(Date.now() / 600_000)}`,
-    });
-    const { error } = await admin()
-      .from("payments")
-      .upsert(
-        { event_id: event.id, user_id: user.id, kind: "addon", addon, plan: null, extra_guests: 0, amount_cents: amount, stripe_session_id: session.id },
-        { onConflict: "stripe_session_id", ignoreDuplicates: true },
-      );
-    if (error) throw new Error(error.message);
-    url = session.url;
-  } catch (e) {
-    console.error("addon checkout failed", e);
-    return { error: "Couldn't open the payment page. Try again in a minute." };
-  }
-  if (!url) return { error: "Couldn't open the payment page. Try again in a minute." };
-  redirect(url);
-}
-
-/**
- * One checkout for a plan and several add-ons, used at the end of the
- * new-event setup. Prices are worked out here, never taken from the browser.
- */
-export async function startBundleCheckout(eventId: string, plan: Plan, addons: Addon[]): Promise<CheckoutState> {
-  const { event, user } = await requireOwnedEvent(eventId);
-  const wantPlan = PLAN_ORDER.includes(plan) && plan !== "free" && planRank(plan) > planRank(event.plan) ? plan : null;
-  let wanted = [...new Set(addons)].filter((a) => ADDONS.some((x) => x.id === a) && !hasAddon(event, a));
-  if (wanted.includes("storage")) wanted = wanted.filter((a) => a !== "storage1y");
-  if (!wantPlan && wanted.length === 0) return { error: "Nothing to pay for." };
-  if (!stripeConfigured()) return { error: "Payments aren't set up yet. Your event is saved on the Free plan." };
-
-  // SMS is priced on the plan the event will have after paying.
-  const pricedAs = { plan: wantPlan ?? event.plan, addon_storage_1y: event.addon_storage_1y };
-  const items = [
-    ...(wantPlan
-      ? [{ amountCents: upgradePrice(event.plan, wantPlan), name: `${planInfo(wantPlan).name} plan: ${event.title}`, description: `${guestLimitText(wantPlan)} for one event.` }]
-      : []),
-    ...wanted.map((a) => ({ amountCents: addonPrice(a, pricedAs), name: addonInfo(a).name, description: addonInfo(a).blurb })),
-  ];
-  const amount = items.reduce((n, it) => n + it.amountCents, 0);
-  const base = `${siteUrl()}/dashboard/events/${event.id}/upgrade`;
-  let url: string | null = null;
-  try {
-    const session = await createCheckoutSession({
-      items,
-      description: `Lastshot: ${event.title}`,
-      email: user.email!,
-      successUrl: `${base}?paid=bundle&from=new&session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${base}?cancelled=1&from=new`,
-      metadata: { event_id: event.id, kind: "bundle", plan: wantPlan ?? "", addons: wanted.join(","), user_id: user.id },
-      idempotencyKey: `bundle:${event.id}:${wantPlan ?? "-"}:${wanted.sort().join("+")}:${user.id}:${Math.floor(Date.now() / 600_000)}`,
-    });
-    const { error } = await admin()
-      .from("payments")
-      .upsert(
-        {
-          event_id: event.id,
-          user_id: user.id,
-          kind: "bundle",
-          plan: wantPlan as Exclude<Plan, "free"> | null,
-          addons: wanted,
-          extra_guests: 0,
-          amount_cents: amount,
-          stripe_session_id: session.id,
-        },
-        { onConflict: "stripe_session_id", ignoreDuplicates: true },
-      );
-    if (error) throw new Error(error.message);
-    url = session.url;
-  } catch (e) {
-    console.error("bundle checkout failed", e);
-    return { error: "Couldn't open the payment page. Your event is saved; you can pay from its plan page." };
-  }
-  if (!url) return { error: "Couldn't open the payment page. Your event is saved; you can pay from its plan page." };
   redirect(url);
 }

@@ -14,9 +14,10 @@ describe("plans", () => {
       ["unlimited", null],
     ]);
   });
-  it("charges only the difference when upgrading", () => {
+  it("charges full price from Free and 25% off when moving up from a paid plan", () => {
     expect(upgradePrice("free", "small")).toBe(4900);
-    expect(upgradePrice("party", "big")).toBe(8000);
+    expect(upgradePrice("party", "big")).toBe(13400);
+    expect(upgradePrice("small", "unlimited")).toBe(22400);
     expect(upgradePrice("big", "party")).toBe(0);
   });
   it("formats prices", () => {

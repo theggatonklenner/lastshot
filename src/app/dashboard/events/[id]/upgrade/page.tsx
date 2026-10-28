@@ -3,15 +3,12 @@ import type { Metadata } from "next";
 import { requireOwnedEvent } from "@/lib/server/organiser";
 import { stripeConfigured, stripeTestMode } from "@/lib/server/stripe";
 import { confirmSession } from "@/lib/server/payments";
-import { ADDONS, PLANS, addonInfo, addonPrice, eventGuestLimit, formatPrice, hasAddon, paymentLabel, planInfo, planRank, upgradePrice } from "@/lib/plans";
+import { ADDONS, eventGuestLimit, formatPrice, hasAddon, paymentLabel, planInfo , addonInfo } from "@/lib/plans";
 import { retentionUntil } from "@/lib/rules";
 import type { Addon } from "@/lib/database.types";
 import { formatDateTime } from "@/lib/format";
-import { Notice, Panel, cx } from "@/components/ui";
-import { PlanButton } from "./plan-button";
-import { SeatsSlider } from "./seats-slider";
-import { AddonButton } from "./addon-button";
-import { PlanPrice } from "@/components/plan-price";
+import { Notice, Panel } from "@/components/ui";
+import { OrderBuilder } from "./order-builder";
 
 export const metadata: Metadata = { title: "Plan" };
 
@@ -46,6 +43,8 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
   const guests = stats?.[0]?.guests ?? 0;
   const current = planInfo(event.plan);
   const limit = eventGuestLimit(event);
+  const ownedAddons = ADDONS.filter((a) => hasAddon(event, a.id) && !(a.id === "storage1y" && event.addon_storage));
+  const keepUntil = retentionUntil(event);
   const ready = stripeConfigured();
 
   return (
@@ -54,8 +53,8 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
         <Notice tone="success">
           {sp.paid === "seats"
             ? `Payment received. Up to ${limit} guests can now join. A receipt is on its way to your email.`
-            : sp.paid === "bundle"
-            ? "Payment received. Your plan and add-ons are on. A receipt is on its way to your email."
+            : sp.paid === "bundle" || sp.paid === "cart"
+            ? "Payment received. Everything in your order is now on. A receipt is on its way to your email."
             : sp.paid === "addon" && typeof sp.addon === "string" && ADDONS.some((a) => a.id === sp.addon)
             ? `Payment received. ${addonInfo(sp.addon as Addon).name} is now on for this event. A receipt is on its way to your email.`
             : `Payment received. This event is now on the ${current.name} plan. A receipt is on its way to your email.`}
@@ -79,16 +78,21 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
           Your event is published. Next, print the sign or share the link.
         </Notice>
       )}
-      {sp.checkout_error && (
-        <Notice tone="warn">
-          Your event is published on the Free plan, but the payment page couldn&apos;t open. Choose your plan and add-ons
-          below to try again.
+
+      {sp.cancelled && sp.from === "new" && event.status === "draft" && (
+        <Notice
+          tone="info"
+          action={
+            <Link href={`/dashboard/events/${event.id}`} className="font-semibold underline">
+              Publish on Free instead
+            </Link>
+          }
+        >
+          Payment cancelled, nothing was charged. Your event is saved as a draft. Pay below to publish it.
         </Notice>
       )}
-      {sp.cancelled && (
-        <Notice tone="info">
-          Payment cancelled. Nothing was charged{sp.from === "new" ? ", and your event is on the Free plan for now" : ""}.
-        </Notice>
+      {sp.cancelled && !(sp.from === "new" && event.status === "draft") && (
+        <Notice tone="info">Payment cancelled. Nothing was charged.</Notice>
       )}
       {!ready && <Notice tone="warn">Payments aren&apos;t switched on yet, so upgrades are unavailable for now.</Notice>}
       {ready && stripeTestMode() && (
@@ -96,134 +100,46 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
       )}
 
       <div className="flex flex-col gap-1">
-        <h2 className="text-xl font-bold">Plan for this event</h2>
+        <h2 className="text-xl font-bold">Plan and extras for this event</h2>
         <p className="text-graphite">
           {limit === null
             ? `${guests} ${guests === 1 ? "guest has" : "guests have"} joined. There's no limit on this plan.`
             : `${guests} of ${limit} cameras taken${event.extra_guests ? ` (${current.guests} on the plan plus ${event.extra_guests} extra seats)` : ""}. When it's full, new guests see "This event is full" and you get an email.`}{" "}
-          Pay once per event. Upgrading takes effect straight away, even mid-event, and you only pay the difference.
-          {event.plan === "free" && " It also removes the watermark from every photo, including ones already taken."}
+          Choose what you need, check the total, then pay once. Everything takes effect straight away, even mid-event.
+          {event.plan === "free" && " Any paid plan also removes the watermark from every photo, including ones already taken."}
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {PLANS.map((p) => {
-          const isCurrent = p.id === event.plan;
-          const lower = planRank(p.id) < planRank(event.plan);
-          const price = upgradePrice(event.plan, p.id);
-          return (
-            <Panel
-              key={p.id}
-              className={cx("flex flex-col gap-4", isCurrent && "ring-2 ring-cobalt", lower && "opacity-60")}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <h3 className="text-lg font-bold">{p.name}</h3>
-                {isCurrent && (
-                  <span className="rounded-full bg-cobalt px-2.5 py-0.5 text-xs font-bold text-white">Current</span>
-                )}
-              </div>
-              <PlanPrice
-                plan={p.id}
-                note={
-                  !isCurrent && !lower && event.plan !== "free" && p.id !== "free"
-                    ? `You pay ${formatPrice(price)} (the difference)`
-                    : undefined
-                }
-              />
-              <ul className="flex flex-col gap-1.5 text-[15px]">
-                <li className="font-semibold">{p.guests === null ? "Unlimited guests" : `Up to ${p.guests} guests`}</li>
-                <li className="text-graphite">{p.blurb}</li>
-                <li className="text-graphite">
-                  {p.id === "free" ? "Photos carry a small Lastshot watermark" : "No watermark, every feature included"}
-                </li>
-              </ul>
-              <div className="mt-auto">
-                {!isCurrent && !lower && p.id !== "free" && (
-                  <PlanButton
-                    eventId={event.id}
-                    plan={p.id}
-                    label={event.plan === "free" ? `Choose ${p.name}` : `Upgrade for ${formatPrice(price)}`}
-                    disabled={!ready || !!event.suspended_at}
-                  />
-                )}
-              </div>
-            </Panel>
-          );
-        })}
-      </div>
+      <OrderBuilder
+        event={event}
+        ready={ready}
+        disabled={!!event.suspended_at}
+        publishOnPay={sp.from === "new" && event.status === "draft"}
+      />
 
-      {limit !== null && (
+      {ownedAddons.length > 0 && (
         <Panel>
-          <div className="mb-5 flex flex-col gap-1">
-            <h2 className="text-lg font-bold">Or add extra seats</h2>
-            <p className="text-graphite">
-              Need just a few more guests? Slide to add seats. The more you add, the less each one costs.
-            </p>
-          </div>
-          <SeatsSlider
-            eventId={event.id}
-            plan={event.plan}
-            extraGuests={event.extra_guests}
-            currentLimit={limit}
-            disabled={!ready || !!event.suspended_at}
-          />
+          <h2 className="mb-3 text-lg font-bold">Your add-ons</h2>
+          <ul className="flex flex-col divide-y divide-line">
+            {ownedAddons.map((a) => (
+              <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
+                <span className="font-semibold">{a.name}</span>
+                {a.id === "frame" || a.id === "branding" ? (
+                  <Link href={`/dashboard/events/${event.id}/settings#addons`} className="text-sm font-semibold text-cobalt hover:underline">
+                    {a.id === "frame" ? "Set up the frame" : "Upload your logo"}
+                  </Link>
+                ) : a.id === "storage" || a.id === "storage1y" ? (
+                  <span className="text-sm text-graphite">
+                    {keepUntil ? `Photos kept until ${formatDateTime(keepUntil.toISOString())}` : "Kept longer after the event"}
+                  </span>
+                ) : (
+                  <span className="text-sm text-graphite">Guests can leave a mobile number</span>
+                )}
+              </li>
+            ))}
+          </ul>
         </Panel>
       )}
-
-      <section className="flex flex-col gap-4" id="addons">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-bold">Add-ons</h2>
-          <p className="text-graphite">One-off extras for this event. They work on any plan.</p>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
-          {ADDONS.filter((a) => !(a.id === "storage1y" && event.addon_storage)).map((a) => {
-            const owned = hasAddon(event, a.id);
-            const keepUntil = a.id === "storage" || a.id === "storage1y" ? retentionUntil(event) : null;
-            return (
-              <Panel key={a.id} className={cx("flex flex-col gap-3", owned && "ring-2 ring-ok")}>
-                <div className="flex items-start justify-between gap-3">
-                  <h3 className="text-lg font-bold">{a.name}</h3>
-                  {owned ? (
-                    <span className="shrink-0 rounded-full bg-ok px-2.5 py-0.5 text-xs font-bold text-white">Added</span>
-                  ) : (
-                    <span className="display shrink-0 text-2xl numeric">{formatPrice(addonPrice(a.id, event))}</span>
-                  )}
-                </div>
-                <p className="text-graphite">{a.blurb}</p>
-                <p className="text-sm text-graphite">{a.detail}</p>
-                <div className="mt-auto pt-1">
-                  {owned ? (
-                    a.id === "frame" || a.id === "branding" ? (
-                      <Link href={`/dashboard/events/${event.id}/settings#addons`} className="font-semibold text-cobalt hover:underline">
-                        {a.id === "frame" ? "Set up the frame" : "Upload your logo"}
-                      </Link>
-                    ) : a.id === "storage" || a.id === "storage1y" ? (
-                      <p className="text-sm font-semibold text-ok">
-                        {keepUntil
-                          ? `Photos kept until ${formatDateTime(keepUntil.toISOString())}.`
-                          : `Photos kept for ${a.id === "storage" ? "2 years" : "1 year"} after the event.`}
-                      </p>
-                    ) : (
-                      <p className="text-sm font-semibold text-ok">Guests can now leave a mobile number for a text.</p>
-                    )
-                  ) : (
-                    <AddonButton
-                      eventId={event.id}
-                      addon={a.id}
-                      label={
-                        a.id === "storage" && event.addon_storage_1y
-                          ? `Extend for ${formatPrice(addonPrice(a.id, event))}`
-                          : `Add for ${formatPrice(addonPrice(a.id, event))}`
-                      }
-                      disabled={!ready || !!event.suspended_at}
-                    />
-                  )}
-                </div>
-              </Panel>
-            );
-          })}
-        </div>
-      </section>
 
       {!!payments?.length && (
         <Panel>

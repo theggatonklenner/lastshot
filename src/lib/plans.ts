@@ -64,9 +64,21 @@ export function planRank(plan: Plan) {
   return PLAN_ORDER.indexOf(plan);
 }
 
-/** What upgrading costs: the difference from what the event already has. */
+/** Percent off the new plan when moving up from a paid plan (and off 2-year storage when extending from 1 year). */
+export const UPGRADE_DISCOUNT = 25;
+
+function discounted(cents: number) {
+  return Math.round((cents * (100 - UPGRADE_DISCOUNT)) / 100 / 100) * 100;
+}
+
+/**
+ * What upgrading costs: the new plan's price, with the upgrade discount when
+ * the event is already on a paid plan. From Free it's the full price.
+ */
 export function upgradePrice(from: Plan, to: Plan) {
-  return Math.max(0, planInfo(to).price - planInfo(from).price);
+  if (planRank(to) <= planRank(from)) return 0;
+  const full = planInfo(to).price;
+  return from === "free" ? full : discounted(full);
 }
 
 export function formatPrice(cents: number) {
@@ -131,8 +143,8 @@ export const ADDONS: AddonInfo[] = [
 type AddonFlags = { addon_frame: boolean; addon_branding: boolean; addon_storage: boolean; addon_storage_1y?: boolean; addon_sms: boolean };
 
 /**
- * Add-on price in AUD cents. SMS scales with the event's size. Moving from
- * 1 year to 2 years of storage costs the difference.
+ * Add-on price in AUD cents. SMS scales with the event's size. Extending
+ * storage from 1 year to 2 years gets the upgrade discount.
  */
 export function addonPrice(addon: Addon, e: { plan: Plan; addon_storage_1y?: boolean }): number {
   switch (addon) {
@@ -143,7 +155,7 @@ export function addonPrice(addon: Addon, e: { plan: Plan; addon_storage_1y?: boo
     case "storage1y":
       return 1200;
     case "storage":
-      return e.addon_storage_1y ? 1900 - 1200 : 1900;
+      return e.addon_storage_1y ? discounted(1900) : 1900;
     case "sms":
       return e.plan === "unlimited" ? 5900 : e.plan === "big" ? 2900 : e.plan === "party" ? 1500 : 900;
   }
@@ -174,4 +186,54 @@ export function paymentLabel(p: { kind: string; plan: Plan | null; addon: Addon 
       .join(" + ");
   }
   return `${planInfo(p.plan ?? "free").name} plan`;
+}
+
+export type CartLine = { key: string; label: string; detail: string; cents: number };
+
+/**
+ * Prices an order against the event as it is now: the plan upgrade (new
+ * plan's price, discounted if already on a paid plan), extra seats (tiered, not on Unlimited) and add-ons not already
+ * owned. SMS is priced on the plan the event will have. Used by the order
+ * summary in the browser and again on the server before charging.
+ */
+export function priceCart(
+  e: { plan: Plan; extra_guests: number } & AddonFlags,
+  order: { plan: Plan; seats: number; addons: Addon[] },
+) {
+  const plan = planRank(order.plan) > planRank(e.plan) ? order.plan : null;
+  const finalPlan = plan ?? e.plan;
+  const seats = finalPlan === "unlimited" || !validSeatCount(order.seats) ? 0 : order.seats;
+  let addons = [...new Set(order.addons)].filter((a) => ADDONS.some((x) => x.id === a) && !hasAddon(e, a));
+  if (addons.includes("storage")) addons = addons.filter((a) => a !== "storage1y");
+
+  const lines: CartLine[] = [];
+  if (plan) {
+    lines.push({
+      key: `plan:${plan}`,
+      label: `${planInfo(plan).name} plan`,
+      detail:
+        e.plan === "free"
+          ? `${guestLimitText(plan)}.`
+          : `Upgrade from ${planInfo(e.plan).name}, ${UPGRADE_DISCOUNT}% off. ${guestLimitText(plan)}.`,
+      cents: upgradePrice(e.plan, plan),
+    });
+  }
+  if (seats) {
+    const off = seatDiscount(seats);
+    lines.push({
+      key: "seats",
+      label: `${seats} extra seats`,
+      detail: off ? `${off}% bulk discount included.` : "Standard price.",
+      cents: seatPrice(seats),
+    });
+  }
+  for (const a of addons) {
+    lines.push({
+      key: `addon:${a}`,
+      label: addonInfo(a).name,
+      detail: addonInfo(a).blurb,
+      cents: addonPrice(a, { plan: finalPlan, addon_storage_1y: e.addon_storage_1y }),
+    });
+  }
+  return { plan, seats, addons, lines, total: lines.reduce((n, l) => n + l.cents, 0) };
 }

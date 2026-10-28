@@ -61,6 +61,7 @@ Migrations live in `supabase/migrations` and have already been applied to the La
 11. `photo_watermarks`: marks photos that have watermarked copies
 12. `addons`: add-on flags and settings, add-on payments, 2-year retention, SMS sign-ups
 13. `storage_1y_and_bundles`: 1-year storage option, bundle payments
+14. `cart_checkout`: one checkout for plan, seats and add-ons; publish once paid
 
 `supabase/tests/db_rules.sql`, `db_admin_emails.sql` and `db_team_reports_retention.sql` exercise the rules (limits, retries, lifecycle, cross-organiser isolation, anon lock-out, path scoping, blocking, closed events, rate limiting). Paste it into the SQL editor; it ends with `ALL TESTS PASSED` and rolls itself back.
 
@@ -144,7 +145,7 @@ Photos are deleted 180 days after an event ends (drafts that were never publishe
 
 Each event has a plan: Free (10 guests), Small ($49, 50), Party ($99, 100), Big event ($179, 300) or Unlimited ($299). Prices are in `src/lib/plans.ts`; guest limits are also in `public.plan_guest_limit()` and must match (a unit test checks the TypeScript side). Postgres refuses new guests once the limit is reached (`guest_join`, with the event row locked so two guests can't take the last place); guests who already joined always get back in. The creator gets one "event is full" email.
 
-Upgrading uses Stripe Checkout (`/dashboard/events/<id>/upgrade`). Organisers pay only the difference between plans. The plan changes when Stripe's webhook (`/api/stripe/webhook`, events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, `charge.refunded`) or the success page confirms the payment with Stripe; `fulfil_payment()` is idempotent and never downgrades. Organisers can't change `events.plan` themselves (column grants). Admins can set a plan from the admin event page.
+Everything is bought through one order on the plan page (`/dashboard/events/<id>/upgrade`): pick a plan, extra seats and add-ons, see the itemised total, then pay once with Stripe Checkout (`startCartCheckout()`, a `kind = 'bundle'` payment). `priceCart()` in `src/lib/plans.ts` prices the order in the browser and again on the server before charging. Upgrading from Free costs the new plan's full price; moving up from a paid plan gets 25% off the new plan (`UPGRADE_DISCOUNT`), not the difference. The plan changes when Stripe's webhook (`/api/stripe/webhook`, events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, `charge.refunded`) or the success page confirms the payment with Stripe; `fulfil_payment()` is idempotent and never downgrades. Organisers can't change `events.plan` themselves (column grants). Admins can set a plan from the admin event page.
 
 ### Billing
 
@@ -160,12 +161,12 @@ One-off extras per event, bought through Stripe from the plan page (`kind = 'add
 
 - **Custom photo frame** ($19): organisers set two lines of text and a colour (Settings > Add-ons). The guest's camera draws the border onto each shot (`drawFrame()` in `src/lib/client/develop.ts`), so it applies to photos taken after it's set up.
 - **Your branding** ($29): organisers upload a logo (`/api/events/<id>/logo`, re-encoded as PNG). Guest pages show it instead of the "Made with Lastshot" card, and the slideshow and printable signs use it.
-- **Keep photos for 1 year** ($12) or **2 years** ($19; $7 to extend from 1 year): `event_retention_until()` uses 365 or 730 days instead of 180. The old free "keep forever" switch is gone; `keep_photos` is admin-only.
+- **Keep photos for 1 year** ($12) or **2 years** ($19, or 25% off when extending from 1 year): `event_retention_until()` uses 365 or 730 days instead of 180. The old free "keep forever" switch is gone; `keep_photos` is admin-only.
 - **SMS alerts** ($9 to $59 by plan): guests leave a mobile number (`/api/e/<code>/sms`, `add_guest_phone()`), and when the gallery is ready they get one text with a private link, sent through ClickSend alongside the emails (`sendDueGallerySms()`). Texts are capped at the event's guest limit (1,000 on Unlimited). Text links work as gallery passes exactly like email links.
 
 ### New-event setup
 
-The setup has seven steps: Basics, The roll, Gallery, Cover, Plan, Add-ons, Review. The event is saved as a draft from the first step. On Review, "Publish and pay" publishes the event first and then opens one Stripe Checkout for the plan and add-ons together (`startBundleCheckout()`, a `kind = 'bundle'` payment), so the event exists even if the organiser stops at the payment page.
+The setup has seven steps: Basics, The roll, Gallery, Cover, Plan, Add-ons, Review. The event is saved as a draft from the first step. On Review the order is priced up, then "Publish and pay" opens one Stripe Checkout for the plan and add-ons (`startCartCheckout()` with `publish`). The event stays a draft until the payment goes through, then `fulfil_payment()` publishes it (`payments.publish_on_paid`). Free events publish straight away.
 
 ### Watermarks
 

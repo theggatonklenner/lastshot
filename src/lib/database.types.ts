@@ -86,6 +86,7 @@ type PaymentRow = {
   kind: "plan" | "seats" | "addon" | "bundle";
   addon: Addon | null;
   addons: Addon[];
+  publish_on_paid: boolean;
   plan: Exclude<Plan, "free"> | null;
   extra_guests: number;
   amount_cents: number;

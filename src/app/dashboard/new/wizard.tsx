@@ -11,9 +11,9 @@ import { Button, Notice, cx } from "@/components/ui";
 import { formatEventDate, formatDateTime } from "@/lib/format";
 import { eventTypeLabel } from "@/lib/rules";
 import { THEMES } from "@/lib/themes";
-import { ADDONS, PLANS, addonInfo, addonPrice, formatPrice, planInfo } from "@/lib/plans";
+import { ADDONS, PLANS, addonPrice, formatPrice, priceCart } from "@/lib/plans";
 import { PlanPrice } from "@/components/plan-price";
-import { startBundleCheckout } from "@/app/dashboard/events/[id]/upgrade/actions";
+import { startCartCheckout } from "@/app/dashboard/events/[id]/upgrade/actions";
 import type { Addon, Plan } from "@/lib/database.types";
 
 const STEPS = ["Basics", "The roll", "Gallery", "Cover", "Plan", "Add-ons", "Review"] as const;
@@ -31,11 +31,13 @@ export function Wizard() {
   const [accessCode, setAccessCode] = useState("");
   const [plan, setPlan] = useState<Plan>("free");
   const [addons, setAddons] = useState<Addon[]>([]);
-  const lineItems = [
-    ...(plan !== "free" ? [{ label: `${planInfo(plan).name} plan`, cents: planInfo(plan).price }] : []),
-    ...addons.map((a) => ({ label: addonInfo(a).name, cents: addonPrice(a, { plan }) })),
-  ];
-  const total = lineItems.reduce((n, i) => n + i.cents, 0);
+  // Same pricing the server uses before charging (a new event starts on Free with nothing added).
+  const cart = priceCart(
+    { plan: "free", extra_guests: 0, addon_frame: false, addon_branding: false, addon_storage: false, addon_storage_1y: false, addon_sms: false },
+    { plan, seats: 0, addons },
+  );
+  const lineItems = cart.lines.map((l) => ({ label: l.label, cents: l.cents }));
+  const total = cart.total;
   const [eventId, setEventId] = useState<string | null>(null);
   const [savedCode, setSavedCode] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof EventInputType, string>>>({});
@@ -112,15 +114,15 @@ export function Wizard() {
     start(async () => {
       const id = await save();
       if (!id) return;
+      if (total > 0) {
+        // Price everything, then charge. The event goes live once Stripe confirms the payment.
+        const pay = await startCartCheckout(id, { plan, seats: 0, addons }, { publish: true, from: "new" });
+        if (pay?.error) setMessage(`${pay.error} Your event is saved as a draft.`);
+        return;
+      }
       const res = await changeLifecycle(id, "publish");
       if (!res.ok) {
         setMessage(res.error);
-        return;
-      }
-      if (total > 0) {
-        // Opens Stripe; on success Stripe sends them back to the event's plan page.
-        const pay = await startBundleCheckout(id, plan, addons);
-        if (pay?.error) router.push(`/dashboard/events/${id}/upgrade?checkout_error=1`);
         return;
       }
       router.push(`/dashboard/events/${id}/share?published=1`);
@@ -381,8 +383,8 @@ function Review({
         </ul>
         {total > 0 && (
           <p className="border-t border-line px-4 py-3 text-sm text-graphite">
-            AUD, paid once with a card through Stripe. Your event is published first, so it&apos;s saved even if you stop at
-            the payment page.
+            AUD, paid once with a card through Stripe. Your event goes live as soon as the payment goes through. If you
+            stop at the payment page, it&apos;s kept as a draft.
           </p>
         )}
       </div>

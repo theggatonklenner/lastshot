@@ -5,8 +5,12 @@ import type { Plan } from "@/lib/database.types";
 export function PlanPrice({ plan, priceOverride, note }: { plan: Plan; priceOverride?: number; note?: string }) {
   const info = planInfo(plan);
   const value = planValue(plan);
-  const saving = planSaving(plan);
   const price = priceOverride ?? info.price;
+  // With an upgrade discount the saving is against the $2-a-seat value, at the price actually paid.
+  const saving =
+    priceOverride !== undefined && value !== null && priceOverride > 0 && value > priceOverride
+      ? { cents: value - priceOverride, percent: Math.round((1 - priceOverride / value) * 100) }
+      : planSaving(plan);
   return (
     <div className="flex flex-col gap-1.5">
       <p className="flex items-baseline gap-x-2 whitespace-nowrap">

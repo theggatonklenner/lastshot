@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { Button, cx } from "@/components/ui";
+import { cx } from "@/components/ui";
 import {
   SEATS_MAX,
   SEATS_MIN,
@@ -12,24 +11,16 @@ import {
   seatPrice,
   seatRate,
 } from "@/lib/plans";
-import type { Plan } from "@/lib/database.types";
-import { startSeatsCheckout, type CheckoutState } from "./actions";
-
+/** Extra seats slider with bulk discounts. Controlled: the order builder owns the value. */
 export function SeatsSlider({
-  eventId,
-  plan,
-  extraGuests,
+  seats,
+  setSeats,
   currentLimit,
-  disabled,
 }: {
-  eventId: string;
-  plan: Plan;
-  extraGuests: number;
+  seats: number;
+  setSeats: (n: number) => void;
   currentLimit: number;
-  disabled?: boolean;
 }) {
-  const [seats, setSeats] = useState(20);
-  const [state, action, pending] = useActionState<CheckoutState, FormData>(startSeatsCheckout, undefined);
   const rate = seatRate(seats);
   const total = seatPrice(seats);
   const fullPrice = seats * SEAT_TIERS[SEAT_TIERS.length - 1].cents;
@@ -41,10 +32,7 @@ export function SeatsSlider({
   const nextDiscount = nextTier ? seatDiscount(nextTier.from) : 0;
 
   return (
-    <form action={action} className="flex flex-col gap-5">
-      <input type="hidden" name="eventId" value={eventId} />
-      <input type="hidden" name="seats" value={seats} />
-
+    <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="display text-5xl numeric">+{seats}</p>
@@ -118,14 +106,7 @@ export function SeatsSlider({
         })}
       </ul>
 
-
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <Button type="submit" disabled={disabled || pending}>
-          {pending ? "Opening checkout…" : `Add ${seats} seats for ${formatPrice(total)}`}
-        </Button>
-        <span className="text-sm text-graphite">Seats stay with the event, even if you upgrade later.</span>
-      </div>
-      {state?.error && <p className="text-sm text-signal">{state.error}</p>}
-    </form>
+      <p className="text-sm text-graphite">Seats stay with the event, even if you upgrade later.</p>
+    </div>
   );
 }

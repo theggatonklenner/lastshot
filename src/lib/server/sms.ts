@@ -63,8 +63,8 @@ async function sendTexto(messages: OutgoingSms[]): Promise<SendResult> {
       });
       if (res.ok) return accepted.add(m.ref);
       const err = await textoError(res);
-      // Bad key or no credit affects every text: stop and report once.
-      if (res.status === 401 || res.status === 402) fatal = err;
+      // Bad key, no credit or an account restriction (e.g. links not allowed) affects every text: stop and report once.
+      if (res.status === 401 || res.status === 402 || res.status === 403) fatal = err;
       errors.set(m.ref, err);
     } catch (e) {
       errors.set(m.ref, e instanceof Error ? e.message : "Network error");

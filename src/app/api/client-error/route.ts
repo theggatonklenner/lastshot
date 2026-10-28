@@ -27,7 +27,7 @@ const NOISE = [
   /chrome-extension:|moz-extension:|safari-extension:/i,
 ];
 
-export function isBrowserNoise(message: string, stack?: string | null) {
+function isBrowserNoise(message: string, stack?: string | null) {
   const text = `${message}\n${stack ?? ""}`;
   return NOISE.some((re) => re.test(text));
 }

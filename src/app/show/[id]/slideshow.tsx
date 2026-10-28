@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { cx } from "@/components/ui";
+import { Countdown } from "@/components/countdown";
 
 type Photo = { id: string; url: string; at: string | null };
 type Slide = { key: number; photo: Photo; fresh: boolean };
@@ -50,6 +51,13 @@ export function Slideshow({
   const [showQr, setShowQr] = useState(true);
   const [chrome, setChrome] = useState(true);
   const [offline, setOffline] = useState(false);
+  // Countdown reveal: photos are held on screen until the gallery opens.
+  const [hold, setHold] = useState(false);
+  const [revealAt, setRevealAt] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [developUntil, setDevelopUntil] = useState(0);
+  const holdRef = useRef(false);
+  const counting = useRef(false);
 
   // Playback state lives in refs so the timer never works from stale data.
   const photos = useRef(new Map<string, Photo>());
@@ -105,6 +113,25 @@ export function Slideshow({
     ]);
   }, [nextPhoto]);
 
+  /** 10-second countdown, then the photos "develop" on screen. */
+  const startReveal = useCallback(() => {
+    if (counting.current) return;
+    counting.current = true;
+    let n = 10;
+    setCountdown(n);
+    const t = setInterval(() => {
+      n -= 1;
+      if (n > 0) return setCountdown(n);
+      clearInterval(t);
+      setCountdown(null);
+      holdRef.current = false;
+      setHold(false);
+      // The first few photos after the reveal develop slowly, like prints in a tray.
+      setDevelopUntil(keyRef.current + 3);
+      void advance();
+    }, 1000);
+  }, [advance]);
+
   // Load and keep polling. New photos jump the queue; links are refreshed each time.
   useEffect(() => {
     let stop = false;
@@ -115,7 +142,7 @@ export function Slideshow({
           cache: "no-store",
         });
         if (!res.ok) throw new Error(String(res.status));
-        const body = (await res.json()) as { photos: Photo[] };
+        const body = (await res.json()) as { photos: Photo[]; revealed: boolean; revealAt: string | null };
         const incoming = new Map(body.photos.map((p) => [p.id, p]));
         if (!firstLoad.current) {
           const added = body.photos
@@ -127,10 +154,16 @@ export function Slideshow({
         photos.current = incoming;
         setCount(incoming.size);
         setOffline(false);
+        setRevealAt(body.revealAt);
         if (firstLoad.current) {
           firstLoad.current = false;
-          if (incoming.size) void advance();
-        } else if (!shownId.current && incoming.size) {
+          holdRef.current = !body.revealed;
+          setHold(!body.revealed);
+          if (incoming.size && body.revealed) void advance();
+        } else if (holdRef.current && body.revealed) {
+          // The organiser just revealed the gallery.
+          startReveal();
+        } else if (!holdRef.current && !shownId.current && incoming.size) {
           void advance();
         }
       } catch {
@@ -144,14 +177,23 @@ export function Slideshow({
       stop = true;
       clearTimeout(timer);
     };
-  }, [eventId, advance]);
+  }, [eventId, advance, startReveal]);
+
+  // Scheduled reveal: start the countdown 10 seconds before the time.
+  useEffect(() => {
+    if (!hold || !revealAt) return;
+    const t = setInterval(() => {
+      if (new Date(revealAt).getTime() - Date.now() <= 10_000) startReveal();
+    }, 500);
+    return () => clearInterval(t);
+  }, [hold, revealAt, startReveal]);
 
   // Slide timer.
   useEffect(() => {
-    if (paused || !slides.length) return;
+    if (paused || hold || !slides.length) return;
     const t = setTimeout(() => void advance(), speed * 1000);
     return () => clearTimeout(t);
-  }, [paused, speed, slides, advance]);
+  }, [paused, hold, speed, slides, advance]);
 
   // Keep the screen awake while the slideshow is open.
   useEffect(() => {
@@ -237,14 +279,52 @@ export function Slideshow({
           <img
             src={s.photo.url}
             alt="Event photo"
-            className="drift absolute inset-0 size-full object-contain"
-            style={{ animationDuration: `${speed + 2}s` }}
+            className={cx("absolute inset-0 size-full object-contain", s.key <= developUntil ? "develop-in" : "drift")}
+            style={s.key <= developUntil ? undefined : { animationDuration: `${speed + 2}s` }}
           />
         </div>
       ))}
 
+      {/* Held until the reveal */}
+      {hold && count !== null && (
+        <div className="absolute inset-0 z-[5] grid place-items-center bg-[#0b0b0c] p-10">
+          {countdown !== null ? (
+            <div className="flex flex-col items-center gap-6 text-center">
+              <p className="text-[clamp(20px,2.4vw,34px)] font-semibold text-cream-dim">The photos are developing</p>
+              <p key={countdown} className="reveal-tick display text-[clamp(160px,30vh,340px)] leading-none text-flash numeric">
+                {countdown}
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-7 text-center">
+              {logoUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={logoUrl} alt="" className="max-h-[12vh] max-w-[40vw] object-contain" />
+              )}
+              <p className="display text-[clamp(40px,6vw,96px)] leading-none">{title}</p>
+              <p className="text-[clamp(20px,2.4vw,34px)] text-cream-dim">
+                {count} {count === 1 ? "photo" : "photos"} in the darkroom
+              </p>
+              <p className="display text-[clamp(28px,4vw,60px)] text-flash">
+                {revealAt ? (
+                  <>
+                    Developing in <Countdown to={revealAt} className="numeric" />
+                  </>
+                ) : (
+                  "Developing soon"
+                )}
+              </p>
+              {qr && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={qr} alt="QR code to join" className="size-[min(26vh,260px)] rounded-3xl bg-white p-3" />
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Nothing yet */}
-      {empty && (
+      {empty && !hold && (
         <div className="absolute inset-0 grid place-items-center p-10">
           <div className="flex flex-col items-center gap-8 text-center">
             {logoUrl && (
@@ -322,7 +402,7 @@ export function Slideshow({
       {/* Controls, shown while the mouse moves */}
       <div
         className={cx(
-          "absolute top-0 right-0 left-0 flex items-center justify-between gap-3 bg-gradient-to-b from-black/70 to-transparent px-[3vw] pt-[2.5vh] pb-10 transition-opacity duration-300",
+          "absolute top-0 right-0 left-0 z-10 flex items-center justify-between gap-3 bg-gradient-to-b from-black/70 to-transparent px-[3vw] pt-[2.5vh] pb-10 transition-opacity duration-300",
           chrome ? "opacity-100" : "pointer-events-none opacity-0",
         )}
       >
@@ -369,6 +449,9 @@ export function Slideshow({
               </CtlButton>
             </>
           )}
+          {hold && countdown === null && (
+            <CtlButton onClick={startReveal}>Start the reveal</CtlButton>
+          )}
           <CtlButton onClick={toggleFullscreen} primary>
             Full screen
           </CtlButton>
@@ -376,7 +459,7 @@ export function Slideshow({
       </div>
 
       {chrome && !empty && (
-        <p className="pointer-events-none absolute top-[11vh] right-[3vw] text-right text-xs text-cream-dim">
+        <p className="pointer-events-none absolute top-[11vh] right-[3vw] z-10 text-right text-xs text-cream-dim">
           Space to pause, → to skip, F for full screen
           <br />
           Join link: {host}

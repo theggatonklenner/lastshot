@@ -201,3 +201,14 @@
   border: 3px solid var(--color-cobalt);
 }
 .seats-range:focus-visible { outline: 3px solid var(--color-cobalt); outline-offset: 6px; }
+
+/* Countdown reveal on the TV slideshow */
+@keyframes develop-in {
+  0% { opacity: 0.15; filter: brightness(2.4) contrast(0.35) sepia(0.9) blur(16px); }
+  55% { opacity: 1; filter: brightness(1.25) contrast(0.85) sepia(0.45) blur(3px); }
+  100% { opacity: 1; filter: none; }
+}
+@keyframes reveal-tick { from { transform: scale(1.35); opacity: 0 } 30% { opacity: 1 } to { transform: scale(1); opacity: 1 } }
+.develop-in { animation: develop-in 5s ease-out both }
+.reveal-tick { animation: reveal-tick 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both }
+@media (prefers-reduced-motion: reduce) { .develop-in, .reveal-tick { animation: none } }

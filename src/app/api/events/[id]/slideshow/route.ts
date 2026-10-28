@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { ownedEventForApi } from "@/lib/server/organiser";
 import { jsonError } from "@/lib/server/http";
 import { servedPath, signPaths } from "@/lib/server/media";
+import { galleryRevealed } from "@/lib/rules";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,10 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/events/[id]
     {
       ok: true,
       status: owned.event.status,
+      // For the countdown reveal: hold photos on the TV until the gallery opens.
+      revealed: galleryRevealed(owned.event),
+      revealMode: owned.event.reveal_mode,
+      revealAt: owned.event.reveal_mode === "scheduled" ? owned.event.reveal_at : null,
       photos: rows
         .map((p, i) => ({ id: p.id, url: urls[i], at: p.uploaded_at }))
         .filter((p): p is { id: string; url: string; at: string | null } => !!p.url),

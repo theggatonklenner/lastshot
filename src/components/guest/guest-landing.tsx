@@ -1,4 +1,4 @@
-import { formatEventDate } from "@/lib/format";
+import { formatDateTime, formatEventDate } from "@/lib/format";
 import type { EventRecord } from "@/lib/database.types";
 import { GuestShell } from "./guest-shell";
 import { JoinPanel } from "./join-panel";
@@ -40,6 +40,11 @@ export function GuestLanding({
           <p className="text-[15px] text-cream-dim">
             Your phone becomes a disposable camera with {event.photos_per_guest === 1 ? "one shot" : `${event.photos_per_guest} shots`}.
             No app, no account. Every photo goes to one shared roll.
+            {event.bonus_shots > 0 && event.bonus_at && (
+              <span className="mt-1 block font-semibold text-flash">
+                +{event.bonus_shots} bonus shots unlock {formatDateTime(event.bonus_at, event.timezone)}.
+              </span>
+            )}
           </p>
         </div>
         <JoinPanel

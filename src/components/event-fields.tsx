@@ -117,6 +117,48 @@ export function RollFields({ value, set, errors }: Props) {
         </div>
       </Field>
 
+      <div className="flex flex-col gap-3">
+        <Toggle
+          checked={value.bonus_shots > 0}
+          onChange={(on) => {
+            set("bonus_shots", on ? 5 : 0);
+            if (!on) set("bonus_at", null);
+          }}
+          label="Bonus shots later on"
+          description="Give everyone extra shots at a set time, like +5 at 10pm, so photos keep coming late in the night."
+        />
+        {value.bonus_shots > 0 && (
+          <div className="grid gap-4 sm:grid-cols-[auto_1fr]">
+            <Field label="Extra shots" htmlFor="bonus_shots" error={errors?.bonus_shots}>
+              <Select
+                id="bonus_shots"
+                value={value.bonus_shots}
+                onChange={(e) => set("bonus_shots", Number(e.target.value))}
+              >
+                {[2, 3, 5, 8, 10, 12, 15, 20].map((n) => (
+                  <option key={n} value={n}>
+                    +{n}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field
+              label="Unlocks at"
+              htmlFor="bonus_at"
+              error={errors?.bonus_at}
+              hint="Uses your device's time zone. Guests who've run out get a heads-up."
+            >
+              <Input
+                id="bonus_at"
+                type="datetime-local"
+                value={isoToLocalInput(value.bonus_at ?? null)}
+                onChange={(e) => set("bonus_at", localInputToIso(e.target.value))}
+              />
+            </Field>
+          </div>
+        )}
+      </div>
+
       <fieldset className="flex flex-col gap-3">
         <legend className="mb-1.5 text-[15px] font-semibold">Camera style</legend>
         <div className="grid gap-3 sm:grid-cols-2">

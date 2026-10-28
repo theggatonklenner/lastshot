@@ -12,6 +12,8 @@ export const GUEST_ERROR_MESSAGES: Record<string, { status: number; message: str
   access_code_invalid: { status: 403, message: "That access code doesn't match. Ask the organiser." },
   limit_reached: { status: 409, message: "You've used every shot on this camera." },
   library_disabled: { status: 403, message: "This event only accepts photos taken with the camera." },
+  event_full: { status: 409, message: "This event is full. Ask the organiser to make room for more cameras." },
+  event_suspended: { status: 403, message: "This event isn't available right now." },
   rate_limited: { status: 429, message: "Too many tries. Wait a minute and try again." },
   server_error: { status: 500, message: "Something went wrong on our side. Try again." },
 };

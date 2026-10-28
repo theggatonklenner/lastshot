@@ -45,6 +45,27 @@ type EventRow = {
   email_capture_enabled: boolean;
   keep_photos: boolean;
   retention_warned_at: string | null;
+  plan: Plan;
+  full_notified_at: string | null;
+  bonus_shots: number;
+  bonus_at: string | null;
+};
+
+export type Plan = "free" | "party" | "big" | "unlimited";
+
+type PaymentRow = {
+  id: string;
+  event_id: string | null;
+  user_id: string | null;
+  plan: Exclude<Plan, "free">;
+  amount_cents: number;
+  currency: string;
+  stripe_session_id: string;
+  stripe_payment_intent: string | null;
+  status: "pending" | "paid" | "expired" | "refunded";
+  receipt_email: string | null;
+  created_at: string;
+  paid_at: string | null;
 };
 
 type GuestRow = {
@@ -207,6 +228,12 @@ export type Database = {
         Update: Partialize<ErrorRow>;
         Relationships: [];
       };
+      payments: {
+        Row: PaymentRow;
+        Insert: Partialize<PaymentRow> & { plan: PaymentRow["plan"]; amount_cents: number; stripe_session_id: string };
+        Update: Partialize<PaymentRow>;
+        Relationships: [];
+      };
       rate_limits: {
         Row: { count: number; key: string; window_start: string };
         Insert: { count?: number; key: string; window_start: string };
@@ -271,6 +298,11 @@ export type Database = {
         Returns: boolean;
       };
       admin_overview: { Args: never; Returns: Json };
+      admin_revenue: { Args: never; Returns: Json };
+      fulfil_payment: {
+        Args: { p_session_id: string; p_payment_intent: string | null; p_email: string | null };
+        Returns: PaymentRow;
+      };
       admin_events: {
         Args: { p_search: string | null; p_status: string | null; p_limit: number; p_offset: number };
         Returns: {
@@ -338,3 +370,4 @@ export type ProfileRecord = ProfileRow;
 export type ReportRecord = ReportRow;
 export type ErrorRecord = ErrorRow;
 export type { EventStatus, EventType, GalleryVisibility, ModerationStatus, RevealMode };
+export type PaymentRecord = PaymentRow;

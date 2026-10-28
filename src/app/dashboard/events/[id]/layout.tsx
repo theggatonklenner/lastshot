@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireOwnedEvent } from "@/lib/server/organiser";
 import { Notice, StatusPill } from "@/components/ui";
 import { formatEventDate } from "@/lib/format";
+import { planInfo } from "@/lib/plans";
 import { EventTabs } from "./tabs";
 import { LiveRefresh } from "./live-refresh";
 
@@ -20,6 +21,13 @@ export default async function EventLayout({ children, params }: LayoutProps<"/da
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="display-md text-[clamp(28px,4vw,40px)]">{event.title}</h1>
           <StatusPill status={event.status} />
+          <Link
+            href={`/dashboard/events/${event.id}/upgrade`}
+            className="rounded-full border border-line bg-card px-3 py-1 text-sm font-semibold text-graphite hover:border-cobalt hover:text-cobalt"
+          >
+            {planInfo(event.plan).name} plan
+            {event.plan !== "unlimited" && <span className="text-cobalt"> · Upgrade</span>}
+          </Link>
         </div>
         <p className="text-graphite">{formatEventDate(event.event_date, event.start_time, event.end_time)}</p>
       </div>

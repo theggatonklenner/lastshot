@@ -219,7 +219,12 @@ function Review({ value, hasCode }: { value: EventInputType; hasCode: boolean })
   const rows: [string, string][] = [
     ["Event", `${value.title} (${eventTypeLabel(value.event_type)})`],
     ["Date", formatEventDate(value.event_date ?? null, value.start_time, value.end_time)],
-    ["Shots per guest", String(value.photos_per_guest)],
+    [
+      "Shots per guest",
+      value.bonus_shots > 0
+        ? `${value.photos_per_guest}, plus ${value.bonus_shots} at ${formatDateTime(value.bonus_at ?? null)}`
+        : String(value.photos_per_guest),
+    ],
     ["Camera style", THEMES[value.theme].name],
     ["Gallery opens", reveal],
     ["Who sees the gallery", visibility],
@@ -231,6 +236,7 @@ function Review({ value, hasCode }: { value: EventInputType; hasCode: boolean })
       value.email_capture_enabled && value.gallery_visibility !== "private" ? "Guests can ask for an email" : "Off",
     ],
     ["Access code", hasCode ? "Required" : "None"],
+    ["Plan", "Free, up to 20 guests. Upgrade any time from the event page."],
   ];
   return (
     <div className="flex flex-col gap-4">

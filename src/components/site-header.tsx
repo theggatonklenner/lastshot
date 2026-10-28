@@ -10,6 +10,12 @@ export async function SiteHeader() {
         <Logo />
       </Link>
       <nav className="flex items-center gap-2">
+        <Link href="/#how-it-works" className="hidden px-2 text-[15px] font-semibold text-graphite hover:text-ink sm:inline">
+          How it works
+        </Link>
+        <Link href="/#pricing" className="px-2 text-[15px] font-semibold text-graphite hover:text-ink">
+          Pricing
+        </Link>
         {user ? (
           <LinkButton href="/dashboard" size="sm">
             Your events

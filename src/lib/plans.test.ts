@@ -1,0 +1,56 @@
+import { describe, expect, it } from "vitest";
+import { createHmac } from "node:crypto";
+import { PLANS, formatPrice, planInfo, upgradePrice } from "./plans";
+import { bonusPending, bonusUnlocked, shotLimit } from "./rules";
+import { verifyStripeSignature } from "./server/stripe";
+
+describe("plans", () => {
+  it("matches the guest limits in public.plan_guest_limit()", () => {
+    expect(PLANS.map((p) => [p.id, p.guests])).toEqual([
+      ["free", 20],
+      ["party", 100],
+      ["big", 300],
+      ["unlimited", null],
+    ]);
+  });
+  it("charges only the difference when upgrading", () => {
+    expect(upgradePrice("free", "party")).toBe(4900);
+    expect(upgradePrice("party", "big")).toBe(5000);
+    expect(upgradePrice("big", "party")).toBe(0);
+  });
+  it("formats prices", () => {
+    expect(formatPrice(0)).toBe("Free");
+    expect(formatPrice(19900)).toBe("$199");
+    expect(formatPrice(4950)).toBe("$49.50");
+    expect(planInfo("big").name).toBe("Big event");
+  });
+});
+
+describe("bonus shots", () => {
+  const base = { photos_per_guest: 10, bonus_shots: 5, bonus_at: "2026-10-28T11:00:00Z" };
+  it("adds bonus shots only after the unlock time", () => {
+    expect(shotLimit(base, new Date("2026-10-28T10:59:00Z"))).toBe(10);
+    expect(shotLimit(base, new Date("2026-10-28T11:00:00Z"))).toBe(15);
+    expect(bonusPending(base, new Date("2026-10-28T10:00:00Z"))).toBe(true);
+    expect(bonusUnlocked(base, new Date("2026-10-28T12:00:00Z"))).toBe(true);
+  });
+  it("ignores bonus settings with no shots", () => {
+    expect(shotLimit({ ...base, bonus_shots: 0 }, new Date("2030-01-01"))).toBe(10);
+  });
+});
+
+describe("stripe webhook signature", () => {
+  const secret = "whsec_test";
+  const payload = '{"id":"evt_1"}';
+  const sign = (t: number, body = payload) => createHmac("sha256", secret).update(`${t}.${body}`).digest("hex");
+  it("accepts a valid recent signature", () => {
+    const t = Math.floor(Date.now() / 1000);
+    expect(verifyStripeSignature(payload, `t=${t},v1=${sign(t)}`, secret)).toBe(true);
+  });
+  it("rejects a tampered body, old timestamp or missing header", () => {
+    const t = Math.floor(Date.now() / 1000);
+    expect(verifyStripeSignature('{"id":"evt_2"}', `t=${t},v1=${sign(t)}`, secret)).toBe(false);
+    expect(verifyStripeSignature(payload, `t=${t - 1000},v1=${sign(t - 1000)}`, secret)).toBe(false);
+    expect(verifyStripeSignature(payload, null, secret)).toBe(false);
+  });
+});

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { requireOwnedEvent } from "@/lib/server/organiser";
+import { shotLimit } from "@/lib/rules";
 import { formatTime, pluralise } from "@/lib/format";
 import { EmptyState, Panel } from "@/components/ui";
 
@@ -27,7 +28,7 @@ export default async function AnalyticsPage({ params }: PageProps<"/dashboard/ev
 
   const g = guests ?? [];
   const shooters = g.filter((x) => x.photos_submitted > 0).length;
-  const finished = g.filter((x) => x.photos_submitted >= event.photos_per_guest).length;
+  const finished = g.filter((x) => x.photos_submitted >= shotLimit(event)).length;
   const fromLibrary = (photos ?? []).filter((p) => p.source === "library").length;
   const perGuest = new Map<string, number>();
   for (const p of photos ?? []) perGuest.set(p.guest_id, (perGuest.get(p.guest_id) ?? 0) + 1);
@@ -92,7 +93,7 @@ export default async function AnalyticsPage({ params }: PageProps<"/dashboard/ev
               <li key={t.name + t.n} className="flex items-center gap-3">
                 <span className="w-28 truncate font-semibold">{t.name}</span>
                 <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-paper-2">
-                  <span className="block h-full rounded-full bg-cobalt" style={{ width: `${(t.n / event.photos_per_guest) * 100}%` }} />
+                  <span className="block h-full rounded-full bg-cobalt" style={{ width: `${(t.n / shotLimit(event)) * 100}%` }} />
                 </span>
                 <span className="w-10 text-right numeric">{t.n}</span>
               </li>

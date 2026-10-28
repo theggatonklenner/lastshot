@@ -23,6 +23,8 @@ export const EventInput = z
     start_time: time,
     end_time: time,
     photos_per_guest: z.coerce.number().int().min(1, "At least 1 shot.").max(100, "100 shots at most."),
+    bonus_shots: z.coerce.number().int().min(0).max(50, "50 bonus shots at most."),
+    bonus_at: z.iso.datetime({ offset: true }).nullable().optional(),
     reveal_mode: z.enum(["live", "scheduled", "manual"]),
     reveal_at: z.iso.datetime({ offset: true }).nullable().optional(),
     gallery_visibility: z.enum(["guests", "public", "private"]),
@@ -38,7 +40,12 @@ export const EventInput = z
   .refine((v) => v.reveal_mode !== "scheduled" || !!v.reveal_at, {
     message: "Pick when the gallery opens.",
     path: ["reveal_at"],
-  });
+  })
+  .refine((v) => v.bonus_shots === 0 || !!v.bonus_at, {
+    message: "Pick when the bonus shots unlock.",
+    path: ["bonus_at"],
+  })
+  .transform((v) => (v.bonus_shots === 0 ? { ...v, bonus_at: null } : v));
 
 export type EventInputType = z.infer<typeof EventInput>;
 
@@ -51,6 +58,8 @@ export const EVENT_DEFAULTS: EventInputType = {
   start_time: null,
   end_time: null,
   photos_per_guest: 12,
+  bonus_shots: 0,
+  bonus_at: null,
   reveal_mode: "live",
   reveal_at: null,
   gallery_visibility: "guests",

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { loadGuestContext } from "@/lib/server/guest-page";
+import { shotLimit } from "@/lib/rules";
 import { GuestLanding } from "@/components/guest/guest-landing";
 import { GuestMessage, guestButton, guestSecondary } from "@/components/guest/guest-shell";
 
@@ -82,7 +83,7 @@ export default async function GuestEventPage({ params }: PageProps<"/e/[code]">)
       galleryHref={galleryHref}
       joined={
         guest
-          ? { displayName: guest.display_name, shotsUsed: guest.photos_submitted, shotsLimit: event.photos_per_guest }
+          ? { displayName: guest.display_name, shotsUsed: guest.photos_submitted, shotsLimit: shotLimit(event) }
           : null
       }
     />

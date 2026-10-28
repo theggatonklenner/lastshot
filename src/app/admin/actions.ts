@@ -181,3 +181,20 @@ export async function resolveError(id: string): Promise<Result> {
     return fail(e);
   }
 }
+
+const PlanSchema = z.enum(["free", "party", "big", "unlimited"]);
+
+/** Sets an event's plan directly (comps, refunds, support). */
+export async function setEventPlan(eventId: string, plan: string): Promise<Result> {
+  try {
+    await assertAdmin();
+    uuid.parse(eventId);
+    const p = PlanSchema.parse(plan);
+    const { error } = await admin().from("events").update({ plan: p, full_notified_at: null }).eq("id", eventId);
+    if (error) throw new Error(error.message);
+    revalidatePath("/admin", "layout");
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}

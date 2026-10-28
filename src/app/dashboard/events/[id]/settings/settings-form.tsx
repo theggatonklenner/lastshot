@@ -18,6 +18,8 @@ function toInput(e: EventRecord): EventInputType {
     start_time: e.start_time?.slice(0, 5) ?? null,
     end_time: e.end_time?.slice(0, 5) ?? null,
     photos_per_guest: e.photos_per_guest,
+    bonus_shots: e.bonus_shots,
+    bonus_at: e.bonus_at,
     reveal_mode: e.reveal_mode,
     reveal_at: e.reveal_at,
     gallery_visibility: e.gallery_visibility,

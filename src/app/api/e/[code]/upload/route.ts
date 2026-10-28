@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { admin } from "@/lib/supabase/admin";
 import { dbErrorCode, getEventAndGuest, rateLimit } from "@/lib/server/guest";
+import { shotLimit } from "@/lib/rules";
 import { guestError, jsonError } from "@/lib/server/http";
 import { InvalidImageError, MAX_UPLOAD_BYTES, photoPaths, processImage, putObject } from "@/lib/server/media";
 
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/e/[code]/up
   if (claimResult.error || !claim) {
     return guestError(dbErrorCode(claimResult.error?.message), {
       shotsUsed: guest.photos_submitted,
-      shotsLimit: event.photos_per_guest,
+      shotsLimit: shotLimit(event),
     });
   }
 

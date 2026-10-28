@@ -1,4 +1,5 @@
-import type { NextRequest } from "next/server";
+import { after, type NextRequest } from "next/server";
+import { notifyEventFull } from "@/lib/server/plan-notices";
 import { z } from "zod";
 import { admin } from "@/lib/supabase/admin";
 import {
@@ -13,6 +14,7 @@ import {
   setGuestCookie,
 } from "@/lib/server/guest";
 import { guestError, jsonError } from "@/lib/server/http";
+import { shotLimit } from "@/lib/rules";
 
 const Body = z.object({
   displayName: z.string().trim().max(40).optional().nullable(),
@@ -44,7 +46,11 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/e/[code]/jo
     p_display_name: parsed.data.displayName ?? null,
     p_access_code: parsed.data.accessCode ?? null,
   });
-  if (error || !guest) return guestError(dbErrorCode(error?.message));
+  if (error || !guest) {
+    const errCode = dbErrorCode(error?.message);
+    if (errCode === "event_full") after(() => notifyEventFull(event.id));
+    return guestError(errCode);
+  }
 
   await setGuestCookie(code, token);
   return Response.json({
@@ -53,7 +59,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/e/[code]/jo
     guest: {
       displayName: guest.display_name,
       shotsUsed: guest.photos_submitted,
-      shotsLimit: event.photos_per_guest,
+      shotsLimit: shotLimit(event),
     },
   });
 }

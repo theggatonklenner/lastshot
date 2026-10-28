@@ -121,6 +121,8 @@ export function dbErrorCode(message: string | undefined): string {
     "access_code_invalid",
     "limit_reached",
     "library_disabled",
+    "event_full",
+    "event_suspended",
   ];
   return known.find((k) => message?.includes(k)) ?? "server_error";
 }

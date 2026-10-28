@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { getEventByCode, getGuestForEvent } from "@/lib/server/guest";
 import { guestError } from "@/lib/server/http";
-import { acceptingSubmissions } from "@/lib/rules";
+import { acceptingSubmissions, shotLimit } from "@/lib/rules";
 
 /** Server-confirmed shot count for the current guest. */
 export async function GET(_req: NextRequest, ctx: RouteContext<"/api/e/[code]/me">) {
@@ -18,7 +18,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/e/[code]/me
             displayName: guest.display_name,
             blocked: guest.blocked,
             shotsUsed: guest.photos_submitted,
-            shotsLimit: event.photos_per_guest,
+            shotsLimit: shotLimit(event),
           }
         : null,
     },

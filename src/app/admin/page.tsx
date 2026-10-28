@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/server/admin-auth";
 import { admin } from "@/lib/supabase/admin";
 import { emailConfigured } from "@/lib/server/email";
 import { formatDateTime } from "@/lib/format";
+import { formatPrice } from "@/lib/plans";
 import { Notice, Panel, StatusPill } from "@/components/ui";
 
 type Overview = {
@@ -33,10 +34,17 @@ function bytes(n: number) {
 
 export default async function AdminOverview() {
   const { supabase } = await requireAdmin();
-  const [{ data }, { data: recent }] = await Promise.all([
+  const [{ data }, { data: recent }, { data: rev }] = await Promise.all([
     supabase.rpc("admin_overview"),
     supabase.rpc("admin_events", { p_search: null, p_status: null, p_limit: 8, p_offset: 0 }),
+    supabase.rpc("admin_revenue"),
   ]);
+  const revenue = (rev ?? { paid_events: 0, revenue_cents: 0, revenue_30d_cents: 0, by_plan: {} }) as unknown as {
+    paid_events: number;
+    revenue_cents: number;
+    revenue_30d_cents: number;
+    by_plan: Record<string, number>;
+  };
   const o = data as unknown as Overview;
   const { count: openErrors } = await admin()
     .from("app_errors")
@@ -74,6 +82,10 @@ export default async function AdminOverview() {
         <Stat label="Waiting for review" value={o.photos_pending_review} sub={`${o.photos_flagged} flagged`} />
         <Stat label="Emails sent" value={o.emails_sent} sub={`${o.emails_waiting} waiting`} />
         <Stat label="Unsubscribed" value={o.emails_unsubscribed} sub={`${o.emails_failed} failed`} />
+        <Stat label="Revenue" value={formatPrice(revenue.revenue_cents).replace("Free", "$0")} sub={`${formatPrice(revenue.revenue_30d_cents).replace("Free", "$0")} in the last 30 days`} />
+        <Stat label="Paid events" value={revenue.paid_events} sub={`${revenue.by_plan.free ?? 0} free events`} />
+        <Stat label="Party / Big" value={`${revenue.by_plan.party ?? 0} / ${revenue.by_plan.big ?? 0}`} sub="Events on each plan" />
+        <Stat label="Unlimited" value={revenue.by_plan.unlimited ?? 0} sub="Includes events from before plans" />
       </dl>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1.6fr]">

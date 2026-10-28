@@ -3,7 +3,8 @@ import QRCode from "qrcode";
 import { requireOwnedEvent } from "@/lib/server/organiser";
 import { signPaths } from "@/lib/server/media";
 import { guestUrl } from "@/lib/env";
-import { galleryRevealed, retentionUntil } from "@/lib/rules";
+import { bonusPending, galleryRevealed, retentionUntil, shotLimit } from "@/lib/rules";
+import { planInfo } from "@/lib/plans";
 import { formatDateTime, timeAgo } from "@/lib/format";
 import { Countdown } from "@/components/countdown";
 import { CopyButton } from "@/components/copy-button";
@@ -28,14 +29,17 @@ export default async function EventOverview({ params, searchParams }: PageProps<
       .limit(8),
   ]);
   const stats = statsRows?.[0] ?? { guests: 0, photos: 0, pending_review: 0, rejected: 0, flagged: 0 };
-  const shotsUsed = (guests ?? []).reduce((n, g) => n + Math.min(g.photos_submitted, event.photos_per_guest), 0);
-  const shotsAvailable = (guests?.length ?? 0) * event.photos_per_guest;
+  const shotsUsed = (guests ?? []).reduce((n, g) => n + Math.min(g.photos_submitted, shotLimit(event)), 0);
+  const shotsAvailable = (guests?.length ?? 0) * shotLimit(event);
   const reviewed = stats.photos ? Math.round(((stats.photos - stats.pending_review) / stats.photos) * 100) : 100;
   const thumbs = await signPaths((recent ?? []).map((p) => p.thumbnail_path));
 
   const url = guestUrl(event.code);
   const qr = event.status !== "draft" ? await QRCode.toDataURL(url, { margin: 1, width: 360, color: { dark: "#16171a", light: "#ffffff" } }) : null;
   const revealed = galleryRevealed(event);
+  const guestLimit = planInfo(event.plan).guests;
+  const nearlyFull = guestLimit !== null && stats.guests >= Math.floor(guestLimit * 0.8);
+  const bonusLater = bonusPending(event);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
@@ -50,8 +54,29 @@ export default async function EventOverview({ params, searchParams }: PageProps<
           <Notice tone="warn">New photos are paused. Guests can still view the gallery if it&apos;s open.</Notice>
         )}
 
+        {nearlyFull && (
+          <Notice
+            tone={stats.guests >= guestLimit! ? "error" : "warn"}
+            action={
+              <Link href={`/dashboard/events/${id}/upgrade`} className="font-semibold underline">
+                Upgrade
+              </Link>
+            }
+          >
+            {stats.guests >= guestLimit!
+              ? `This event is full: all ${guestLimit} cameras are taken, so new guests can't join.`
+              : `${stats.guests} of ${guestLimit} cameras are taken. Upgrade so nobody gets turned away.`}
+          </Notice>
+        )}
+        {bonusLater && event.bonus_at && (
+          <Notice tone="info">
+            {event.bonus_shots} bonus {event.bonus_shots === 1 ? "shot unlocks" : "shots unlock"} for every guest at{" "}
+            {formatDateTime(event.bonus_at)}.
+          </Notice>
+        )}
+
         <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-panel border border-line bg-line sm:grid-cols-4">
-          <Stat label="Guests joined" value={stats.guests} />
+          <Stat label="Guests joined" value={guestLimit === null ? stats.guests : `${stats.guests}/${guestLimit}`} />
           <Stat label="Photos" value={stats.photos} />
           <Stat label="Reviewed" value={`${reviewed}%`} />
           <Stat label="Shots used" value={shotsAvailable ? `${shotsUsed}/${shotsAvailable}` : "0"} />

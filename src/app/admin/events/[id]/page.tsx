@@ -8,6 +8,7 @@ import { formatDateTime, formatEventDate } from "@/lib/format";
 import { eventTypeLabel } from "@/lib/rules";
 import { Panel, StatusPill } from "@/components/ui";
 import { AdminEventControls, AdminPhotoGrid } from "./controls";
+import { planInfo } from "@/lib/plans";
 
 export const metadata: Metadata = { title: "Event" };
 
@@ -40,7 +41,8 @@ export default async function AdminEventPage({ params }: PageProps<"/admin/event
     ["Date", formatEventDate(event.event_date, event.start_time, event.end_time)],
     ["Code", <span key="c" className="numeric">{event.code}</span>],
     ["Created", formatDateTime(event.created_at)],
-    ["Shots per guest", event.photos_per_guest],
+    ["Plan", planInfo(event.plan).name],
+    ["Shots per guest", event.bonus_shots ? `${event.photos_per_guest} + ${event.bonus_shots} bonus` : event.photos_per_guest],
     ["Gallery", `${event.gallery_visibility}, ${event.reveal_mode} reveal`],
     ["Guests", guests ?? 0],
     ["Photos", photos?.length ?? 0],
@@ -77,6 +79,7 @@ export default async function AdminEventPage({ params }: PageProps<"/admin/event
         <AdminEventControls
           eventId={event.id}
           code={event.code}
+          plan={event.plan}
           suspendedAt={event.suspended_at}
           suspendedReason={event.suspended_reason}
         />

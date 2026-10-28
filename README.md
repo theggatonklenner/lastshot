@@ -29,6 +29,8 @@ npm run dev
 | `EMAIL_FROM` | server only | Sender, e.g. `Lastshot <photos@yourdomain.com>`. The domain must be verified in Resend |
 | `EMAIL_REPLY_TO` | server only | Optional reply-to address |
 | `CRON_SECRET` | server only | Optional. Locks the email scheduler endpoint (see below) |
+| `STRIPE_SECRET_KEY` | server only | Stripe secret key. `sk_test_...` for testing, `sk_live_...` for real payments |
+| `STRIPE_WEBHOOK_SECRET` | server only | Signing secret of the Stripe webhook for `/api/stripe/webhook` |
 
 Camera access needs HTTPS on phones. To test on a phone locally, use a tunnel (for example `npx localtunnel --port 3000`) or deploy a preview.
 
@@ -51,6 +53,7 @@ Migrations live in `supabase/migrations` and have already been applied to the La
 5. `admin_views`: admin-only read functions
 6. `email_scheduler`: pg_cron job that triggers the email sender
 7. `reports_retention_team_errors`: co-organisers, photo reports, auto-clean, error log
+8. `plans_payments_bonus`: plans and guest limits, Stripe payments, bonus shots
 
 `supabase/tests/db_rules.sql`, `db_admin_emails.sql` and `db_team_reports_retention.sql` exercise the rules (limits, retries, lifecycle, cross-organiser isolation, anon lock-out, path scoping, blocking, closed events, rate limiting). Paste it into the SQL editor; it ends with `ALL TESTS PASSED` and rolls itself back.
 
@@ -129,6 +132,20 @@ Anyone who can see a gallery can report a photo. The photo is flagged and the cr
 ### Auto-clean
 
 Photos are deleted 180 days after an event ends (drafts that were never published: 180 days after creation), unless the organiser turns on "Keep photos after 180 days". The creator is emailed two weeks before. A daily `pg_cron` job (`lastshot-cleanup`) calls `/api/cron/cleanup` (Vault secret `lastshot_cleanup_url`).
+
+### Plans and payments
+
+Each event has a plan: Free (20 guests), Party ($49, 100), Big event ($99, 300) or Unlimited ($199). Prices are in `src/lib/plans.ts`; guest limits are also in `public.plan_guest_limit()` and must match (a unit test checks the TypeScript side). Postgres refuses new guests once the limit is reached (`guest_join`, with the event row locked so two guests can't take the last place); guests who already joined always get back in. The creator gets one "event is full" email.
+
+Upgrading uses Stripe Checkout (`/dashboard/events/<id>/upgrade`). Organisers pay only the difference between plans. The plan changes when Stripe's webhook (`/api/stripe/webhook`, events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`) or the success page confirms the payment with Stripe; `fulfil_payment()` is idempotent and never downgrades. Organisers can't change `events.plan` themselves (column grants). Admins can set a plan from the admin event page.
+
+### Bonus shots
+
+Organisers can add extra shots that unlock at a set time. `event_shot_limit()` adds them once `bonus_at` has passed, and `claim_photo_slot()` uses it, so the limit is still enforced in Postgres.
+
+### TV slideshow
+
+`/show/<event id>` (organisers only) plays approved photos full screen, puts new ones first, refreshes every 12 seconds and shows the join QR code.
 
 ### Error alerts
 

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { loadGuestContext } from "@/lib/server/guest-page";
 import { formatDateTime } from "@/lib/format";
+import { bonusPending, shotLimit } from "@/lib/rules";
 import { Countdown } from "@/components/countdown";
 import { GuestMessage, guestButton } from "@/components/guest/guest-shell";
 import { EmailCapture } from "@/components/guest/email-capture";
@@ -14,8 +15,27 @@ export default async function DonePage({ params }: PageProps<"/e/[code]/done">) 
   const { code } = await params;
   const ctx = await loadGuestContext(code);
   if (!ctx) notFound();
-  const { event, guest, access, galleryHref } = ctx;
+  const { event, guest, access, galleryHref, accepting } = ctx;
   if (!guest) redirect(`/e/${code}`);
+
+  // Bonus shots unlocked since the guest finished: send them back to the camera.
+  if (accepting && !guest.blocked && guest.photos_submitted < shotLimit(event)) {
+    return (
+      <GuestMessage
+        title="Bonus shots unlocked"
+        action={
+          <Link href={`/e/${code}/camera`} className={guestButton}>
+            Open the camera
+          </Link>
+        }
+      >
+        <p>
+          The organiser gave everyone {event.bonus_shots} more {event.bonus_shots === 1 ? "shot" : "shots"}. Make them count.
+        </p>
+      </GuestMessage>
+    );
+  }
+  const bonusLater = accepting && bonusPending(event) && event.bonus_at;
 
   const shots = guest.photos_submitted;
   let galleryLine: React.ReactNode;
@@ -52,6 +72,12 @@ export default async function DonePage({ params }: PageProps<"/e/[code]/done">) 
       <p>
         All {shots === 1 ? "1 photo is" : `${shots} photos are`} saved to {event.title}. Nice work.
       </p>
+      {bonusLater && (
+        <p className="mt-3 rounded-[14px] bg-body-2 p-3 font-semibold text-flash">
+          {event.bonus_shots} bonus {event.bonus_shots === 1 ? "shot unlocks" : "shots unlock"} in{" "}
+          <Countdown to={bonusLater} className="numeric" />. Come back to this page then.
+        </p>
+      )}
       <p className="mt-3">{galleryLine}</p>
       {galleryHref && (
         <div className="mt-6">

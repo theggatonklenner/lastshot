@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { adminDeleteEvent, adminDeletePhotos, suspendEvent, unsuspendEvent } from "@/app/admin/actions";
+import { adminDeleteEvent, adminDeletePhotos, setEventPlan, suspendEvent, unsuspendEvent } from "@/app/admin/actions";
+import { PLANS } from "@/lib/plans";
 import { Lightbox } from "@/components/lightbox";
-import { Button, EmptyState, Field, Input, Notice, Panel, cx } from "@/components/ui";
+import { Button, EmptyState, Field, Input, Notice, Panel, Select, cx } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 
 export function AdminEventControls({
@@ -11,13 +12,16 @@ export function AdminEventControls({
   code,
   suspendedAt,
   suspendedReason,
+  plan,
 }: {
   eventId: string;
   code: string;
   suspendedAt: string | null;
   suspendedReason: string | null;
+  plan: string;
 }) {
   const [reason, setReason] = useState("");
+  const [planChoice, setPlanChoice] = useState(plan);
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -31,6 +35,24 @@ export function AdminEventControls({
 
   return (
     <div className="flex flex-col gap-6">
+      <Panel>
+        <h2 className="mb-1 text-lg font-bold">Plan</h2>
+        <p className="mb-3 text-graphite">Change it without payment, for example to give an event a free upgrade.</p>
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="Plan" htmlFor="plan">
+            <Select id="plan" value={planChoice} onChange={(e) => setPlanChoice(e.target.value)}>
+              {PLANS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.guests === null ? "no limit" : `${p.guests} guests`})
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Button variant="secondary" pending={pending} disabled={planChoice === plan} onClick={() => run(() => setEventPlan(eventId, planChoice))}>
+            Save plan
+          </Button>
+        </div>
+      </Panel>
       <Panel>
         <h2 className="mb-1 text-lg font-bold">{suspendedAt ? "Suspended" : "Suspend event"}</h2>
         {suspendedAt ? (

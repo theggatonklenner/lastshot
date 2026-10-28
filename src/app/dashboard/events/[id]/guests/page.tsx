@@ -3,7 +3,7 @@ import Link from "next/link";
 import { requireOwnedEvent } from "@/lib/server/organiser";
 import { emailConfigured } from "@/lib/server/email";
 import { formatDateTime, timeAgo } from "@/lib/format";
-import { readyForEmail, remainingShots } from "@/lib/rules";
+import { readyForEmail, remainingShots, shotLimit } from "@/lib/rules";
 import { EmptyState } from "@/components/ui";
 import { BlockButton } from "./block-button";
 import { EmailList, type EmailRow } from "./email-list";
@@ -13,6 +13,7 @@ export const metadata: Metadata = { title: "Guests" };
 export default async function GuestsPage({ params }: PageProps<"/dashboard/events/[id]/guests">) {
   const { id } = await params;
   const { supabase, event } = await requireOwnedEvent(id);
+  const limit = shotLimit(event);
   const [{ data: guests }, { data: photos }, { data: emails }] = await Promise.all([
     supabase.from("event_guests").select("*").eq("event_id", id).order("created_at"),
     supabase.from("photos").select("guest_id").eq("event_id", id).eq("upload_status", "complete"),
@@ -87,7 +88,7 @@ export default async function GuestsPage({ params }: PageProps<"/dashboard/event
                       )}
                     </td>
                     <td className="px-4 py-3 numeric">
-                      {remainingShots(event.photos_per_guest, g.photos_submitted)} of {event.photos_per_guest}
+                      {remainingShots(limit, g.photos_submitted)} of {limit}
                     </td>
                     <td className="px-4 py-3 text-graphite">{timeAgo(g.last_active_at)}</td>
                     <td className="px-4 py-3 text-right">

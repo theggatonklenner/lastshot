@@ -99,6 +99,22 @@ export const STATUS_LABEL: Record<EventRecord["status"], string> = {
   archived: "Archived",
 };
 
+type BonusFields = Pick<EventRecord, "photos_per_guest" | "bonus_shots" | "bonus_at">;
+
+/** Shots each guest gets right now, including bonus shots once unlocked. Mirrors public.event_shot_limit(). */
+export function shotLimit(e: BonusFields, now: Date = new Date()): number {
+  return e.photos_per_guest + (bonusUnlocked(e, now) ? e.bonus_shots : 0);
+}
+
+export function bonusUnlocked(e: BonusFields, now: Date = new Date()): boolean {
+  return e.bonus_shots > 0 && !!e.bonus_at && new Date(e.bonus_at).getTime() <= now.getTime();
+}
+
+/** Bonus shots that are set but not unlocked yet. */
+export function bonusPending(e: BonusFields, now: Date = new Date()): boolean {
+  return e.bonus_shots > 0 && !!e.bonus_at && new Date(e.bonus_at).getTime() > now.getTime();
+}
+
 export function remainingShots(limit: number, used: number): number {
   return Math.max(0, limit - used);
 }

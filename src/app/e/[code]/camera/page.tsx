@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { loadGuestContext } from "@/lib/server/guest-page";
+import { shotLimit } from "@/lib/rules";
 import { resolveTheme } from "@/lib/themes";
 import { Camera } from "@/components/camera/camera";
 
@@ -13,7 +14,7 @@ export default async function CameraPage({ params }: PageProps<"/e/[code]/camera
   const { event, guest, accepting } = ctx;
 
   if (!guest || guest.blocked || !accepting) redirect(`/e/${code}`);
-  if (guest.photos_submitted >= event.photos_per_guest) redirect(`/e/${code}/done`);
+  if (guest.photos_submitted >= shotLimit(event)) redirect(`/e/${code}/done`);
 
   return (
     <Camera
@@ -21,7 +22,7 @@ export default async function CameraPage({ params }: PageProps<"/e/[code]/camera
       title={event.title}
       theme={resolveTheme(event.theme, event.accent_color)}
       dateStamp={event.date_stamp_enabled}
-      limit={event.photos_per_guest}
+      limit={shotLimit(event)}
       initialUsed={guest.photos_submitted}
       allowLibrary={event.camera_roll_uploads_enabled}
       exitHref={`/e/${code}`}

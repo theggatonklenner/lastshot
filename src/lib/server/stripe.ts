@@ -1,0 +1,120 @@
+import "server-only";
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+/** Minimal Stripe client over fetch (Checkout + webhooks only). */
+
+export function stripeConfigured() {
+  return !!process.env.STRIPE_SECRET_KEY;
+}
+
+export function stripeTestMode() {
+  return (process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_test_");
+}
+
+/** Flattens nested params into Stripe's form encoding (a[b][0][c]=...). */
+function encode(params: Record<string, unknown>, prefix = "", out = new URLSearchParams()) {
+  for (const [k, v] of Object.entries(params)) {
+    if (v === undefined || v === null) continue;
+    const key = prefix ? `${prefix}[${k}]` : k;
+    if (Array.isArray(v)) v.forEach((item, i) => encodeValue(`${key}[${i}]`, item, out));
+    else encodeValue(key, v, out);
+  }
+  return out;
+}
+
+function encodeValue(key: string, v: unknown, out: URLSearchParams) {
+  if (v !== null && typeof v === "object") encode(v as Record<string, unknown>, key, out);
+  else out.append(key, String(v));
+}
+
+async function stripe<T>(method: "GET" | "POST", path: string, params?: Record<string, unknown>, idempotencyKey?: string) {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error("Stripe isn't set up (STRIPE_SECRET_KEY).");
+  const qs = method === "GET" && params ? `?${encode(params)}` : "";
+  const res = await fetch(`https://api.stripe.com/v1/${path}${qs}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+    },
+    body: method === "POST" && params ? encode(params) : undefined,
+    cache: "no-store",
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(`Stripe ${res.status}: ${body?.error?.message ?? "request failed"}`);
+  return body as T;
+}
+
+export type CheckoutSession = {
+  id: string;
+  url: string | null;
+  payment_status: "paid" | "unpaid" | "no_payment_required";
+  status: "open" | "complete" | "expired";
+  payment_intent: string | null;
+  customer_details?: { email?: string | null } | null;
+  metadata?: Record<string, string>;
+};
+
+export function createCheckoutSession(p: {
+  amountCents: number;
+  productName: string;
+  description: string;
+  email: string;
+  successUrl: string;
+  cancelUrl: string;
+  metadata: Record<string, string>;
+  idempotencyKey: string;
+}) {
+  return stripe<CheckoutSession>(
+    "POST",
+    "checkout/sessions",
+    {
+      mode: "payment",
+      customer_email: p.email,
+      success_url: p.successUrl,
+      cancel_url: p.cancelUrl,
+      metadata: p.metadata,
+      payment_intent_data: { metadata: p.metadata, description: p.description },
+      line_items: [
+        {
+          quantity: 1,
+          price_data: {
+            currency: "aud",
+            unit_amount: p.amountCents,
+            product_data: { name: p.productName, description: p.description },
+          },
+        },
+      ],
+      allow_promotion_codes: "true",
+      invoice_creation: { enabled: "true" },
+    },
+    p.idempotencyKey,
+  );
+}
+
+export function getCheckoutSession(id: string) {
+  return stripe<CheckoutSession>("GET", `checkout/sessions/${encodeURIComponent(id)}`);
+}
+
+/**
+ * Checks a webhook's Stripe-Signature header (HMAC-SHA256 of "t.payload")
+ * and rejects anything older than 5 minutes.
+ */
+export function verifyStripeSignature(payload: string, header: string | null, secret: string, toleranceSec = 300) {
+  if (!header) return false;
+  const parts = Object.fromEntries(
+    header.split(",").map((kv) => {
+      const i = kv.indexOf("=");
+      return [kv.slice(0, i), kv.slice(i + 1)];
+    }),
+  );
+  const t = Number(parts.t);
+  if (!t || Math.abs(Date.now() / 1000 - t) > toleranceSec) return false;
+  const expected = createHmac("sha256", secret).update(`${t}.${payload}`).digest();
+  const sigs = header
+    .split(",")
+    .filter((kv) => kv.startsWith("v1="))
+    .map((kv) => Buffer.from(kv.slice(3), "hex"));
+  return sigs.some((s) => s.length === expected.length && timingSafeEqual(s, expected));
+}

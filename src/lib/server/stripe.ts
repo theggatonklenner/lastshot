@@ -14,7 +14,8 @@ export function stripeTestMode() {
 /** Flattens nested params into Stripe's form encoding (a[b][0][c]=...). */
 function encode(params: Record<string, unknown>, prefix = "", out = new URLSearchParams()) {
   for (const [k, v] of Object.entries(params)) {
-    if (v === undefined || v === null) continue;
+    // Stripe treats "" as "unset this field" and rejects it when creating things.
+    if (v === undefined || v === null || v === "") continue;
     const key = prefix ? `${prefix}[${k}]` : k;
     if (Array.isArray(v)) v.forEach((item, i) => encodeValue(`${key}[${i}]`, item, out));
     else encodeValue(key, v, out);

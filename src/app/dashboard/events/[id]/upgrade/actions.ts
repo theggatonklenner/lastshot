@@ -7,6 +7,7 @@ import { admin } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/env";
 import { createCheckoutSession, stripeConfigured } from "@/lib/server/stripe";
 import { priceCart } from "@/lib/plans";
+import { recordError } from "@/lib/server/error-log";
 import type { Addon, Plan } from "@/lib/database.types";
 
 export type CheckoutState = { error?: string } | undefined;
@@ -88,6 +89,12 @@ export async function startCartCheckout(
     url = session.url;
   } catch (e) {
     console.error("checkout failed", e);
+    await recordError({
+      source: "server",
+      message: `Checkout failed: ${e instanceof Error ? e.message : String(e)}`.slice(0, 500),
+      path: `/dashboard/events/${event.id}/upgrade`,
+      detail: JSON.stringify({ plan: cart.plan, seats: cart.seats, addons: cart.addons, total: cart.total }),
+    }).catch(() => {});
     return { error: "Couldn't open the payment page. Try again in a minute." };
   }
   if (!url) return { error: "Couldn't open the payment page. Try again in a minute." };

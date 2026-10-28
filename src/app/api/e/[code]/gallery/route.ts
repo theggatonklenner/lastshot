@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getEventByCode, rateLimit, hashIp, clientIp } from "@/lib/server/guest";
+import { getEventByCode, getGuestForEvent, rateLimit, hashIp, clientIp } from "@/lib/server/guest";
 import { guestError, jsonError } from "@/lib/server/http";
 import { loadGalleryPage, resolveGalleryViewer, type GallerySort } from "@/lib/server/gallery";
 
@@ -23,10 +23,18 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/e/[code]/gal
   const sort = sortParam && SORTS.includes(sortParam) ? sortParam : "newest";
   const offset = Math.max(0, Math.min(100_000, Number(params.get("offset") ?? 0) || 0));
 
+  let guestId: string | null = null;
+  if (params.get("mine") === "1") {
+    const guest = await getGuestForEvent(event, code);
+    if (!guest) return Response.json({ ok: true, photos: [], nextOffset: null, total: 0 });
+    guestId = guest.id;
+  }
+
   const page = await loadGalleryPage(event, {
     sort,
     offset,
     includeOriginals: isOwner || event.guest_downloads_enabled,
+    guestId,
   });
   return Response.json({ ok: true, ...page }, { headers: { "Cache-Control": "no-store" } });
 }

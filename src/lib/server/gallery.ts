@@ -35,7 +35,7 @@ export async function resolveGalleryViewer(event: EventRecord, code: string) {
  */
 export async function loadGalleryPage(
   event: EventRecord,
-  opts: { sort: GallerySort; offset: number; limit?: number; includeOriginals: boolean },
+  opts: { sort: GallerySort; offset: number; limit?: number; includeOriginals: boolean; guestId?: string | null },
 ): Promise<{ photos: GalleryPhoto[]; nextOffset: number | null; total: number }> {
   const limit = opts.limit ?? PAGE_SIZE;
   let q = admin()
@@ -46,6 +46,8 @@ export async function loadGalleryPage(
     .eq("event_id", event.id)
     .eq("upload_status", "complete")
     .eq("moderation_status", "approved");
+  // Personal roll: just this guest's photos.
+  if (opts.guestId) q = q.eq("guest_id", opts.guestId);
 
   if (opts.sort === "shuffle") {
     // Photo ids are random v4 UUIDs, so ordering by id is a stable shuffle.

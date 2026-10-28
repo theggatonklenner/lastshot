@@ -80,6 +80,7 @@ export default async function GalleryPage({ params }: PageProps<"/e/[code]/galle
           initial={first}
           downloads={downloads}
           showNames={event.show_guest_names}
+          canMine={!!ctx.guest && !ctx.guest.blocked}
         />
       </div>
     </GuestShell>

@@ -31,6 +31,7 @@ export const EventInput = z
     require_approval: z.boolean(),
     show_guest_names: z.boolean(),
     date_stamp_enabled: z.boolean(),
+    email_capture_enabled: z.boolean(),
     theme: z.enum(["classic", "vintage", "minimal", "custom"]),
     accent_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
   })
@@ -58,6 +59,7 @@ export const EVENT_DEFAULTS: EventInputType = {
   require_approval: false,
   show_guest_names: true,
   date_stamp_enabled: true,
+  email_capture_enabled: true,
   theme: "classic",
   accent_color: "#2546D8",
 };

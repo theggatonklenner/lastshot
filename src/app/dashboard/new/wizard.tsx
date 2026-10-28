@@ -226,6 +226,10 @@ function Review({ value, hasCode }: { value: EventInputType; hasCode: boolean })
     ["Approval", value.require_approval ? "You approve each photo" : "Photos go straight in"],
     ["Downloads", value.guest_downloads_enabled ? "Guests can download" : "Only you can download"],
     ["Camera roll", value.camera_roll_uploads_enabled ? "Allowed" : "Camera only"],
+    [
+      "Email when ready",
+      value.email_capture_enabled && value.gallery_visibility !== "private" ? "Guests can ask for an email" : "Off",
+    ],
     ["Access code", hasCode ? "Required" : "None"],
   ];
   return (

@@ -1,7 +1,7 @@
 import "server-only";
 import { admin } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
-import { getGuestForEvent } from "@/lib/server/guest";
+import { getGuestForEvent, hasViewPass } from "@/lib/server/guest";
 import { signPaths } from "@/lib/server/media";
 import { galleryAccess, type GalleryAccess } from "@/lib/rules";
 import type { EventRecord } from "@/lib/database.types";
@@ -21,9 +21,9 @@ export type GalleryPhoto = {
 };
 
 export async function resolveGalleryViewer(event: EventRecord, code: string) {
-  const [{ user }, guest] = await Promise.all([getUser(), getGuestForEvent(event, code)]);
+  const [{ user }, guest, pass] = await Promise.all([getUser(), getGuestForEvent(event, code), hasViewPass(event, code)]);
   const isOwner = !!user && user.id === event.owner_id;
-  const isGuest = !!guest && !guest.blocked;
+  const isGuest = (!!guest && !guest.blocked) || pass;
   return { isOwner, isGuest, access: galleryAccess(event, { isOwner, isGuest }) as GalleryAccess };
 }
 

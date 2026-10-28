@@ -14,7 +14,7 @@ const Credentials = z.object({
 
 function safeNext(next: FormDataEntryValue | null): string {
   const value = typeof next === "string" ? next : "";
-  return value.startsWith("/dashboard") ? value : "/dashboard";
+  return value.startsWith("/dashboard") || value.startsWith("/admin") ? value : "/dashboard";
 }
 
 export async function signIn(_prev: AuthState, form: FormData): Promise<AuthState> {

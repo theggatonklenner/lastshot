@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireOwnedEvent } from "@/lib/server/organiser";
-import { StatusPill } from "@/components/ui";
+import { Notice, StatusPill } from "@/components/ui";
 import { formatEventDate } from "@/lib/format";
 import { EventTabs } from "./tabs";
 import { LiveRefresh } from "./live-refresh";
@@ -23,6 +23,12 @@ export default async function EventLayout({ children, params }: LayoutProps<"/da
         </div>
         <p className="text-graphite">{formatEventDate(event.event_date, event.start_time, event.end_time)}</p>
       </div>
+      {event.suspended_at && (
+        <Notice tone="error">
+          Lastshot has suspended this event, so guests can&apos;t join, shoot or see the gallery.
+          {event.suspended_reason ? ` Reason: ${event.suspended_reason}` : ""} Contact us if you think this is a mistake.
+        </Notice>
+      )}
       <EventTabs id={event.id} pendingReview={stats?.[0]?.pending_review ?? 0} />
       <div>{children}</div>
     </div>

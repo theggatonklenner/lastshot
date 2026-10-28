@@ -57,6 +57,28 @@ export async function setGuestCookie(code: string, token: string) {
   });
 }
 
+export function viewPassCookieName(code: string) {
+  return `ls_v_${code}`;
+}
+
+export function isTokenShape(token: string) {
+  return TOKEN_RE.test(token);
+}
+
+/** A private gallery link from a "photos are ready" email, saved as a cookie. */
+export async function hasViewPass(event: EventRecord, code: string): Promise<boolean> {
+  const jar = await cookies();
+  const token = jar.get(viewPassCookieName(code))?.value;
+  if (!token || !TOKEN_RE.test(token)) return false;
+  const { data } = await admin()
+    .from("guest_emails")
+    .select("id")
+    .eq("event_id", event.id)
+    .eq("view_token_hash", hashToken(token))
+    .maybeSingle();
+  return !!data;
+}
+
 export async function getEventByCode(code: string): Promise<EventRecord | null> {
   if (!EVENT_CODE_RE.test(code)) return null;
   const { data } = await admin().from("events").select("*").eq("code", code).maybeSingle();

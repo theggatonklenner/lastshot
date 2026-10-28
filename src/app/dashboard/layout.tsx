@@ -5,7 +5,7 @@ import { LinkButton, Logo } from "@/components/ui";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { supabase, user } = await requireOrganiser();
-  const { data: profile } = await supabase.from("profiles").select("display_name, email").eq("id", user.id).maybeSingle();
+  const { data: profile } = await supabase.from("profiles").select("display_name, email, is_admin").eq("id", user.id).maybeSingle();
   const name = profile?.display_name || profile?.email || user.email;
 
   return (
@@ -16,6 +16,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <Logo />
           </Link>
           <div className="flex items-center gap-2">
+            {profile?.is_admin && (
+              <LinkButton href="/admin" size="sm" variant="ghost">
+                Admin
+              </LinkButton>
+            )}
             <LinkButton href="/dashboard/new" size="sm">
               New event
             </LinkButton>

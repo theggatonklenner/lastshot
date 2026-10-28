@@ -3,8 +3,9 @@
 import type { EventRecord, EventType } from "@/lib/database.types";
 
 type RevealFields = Pick<EventRecord, "reveal_mode" | "reveal_at" | "revealed_at">;
-type SubmissionFields = Pick<EventRecord, "status" | "submissions_closed_at">;
-type VisibilityFields = RevealFields & Pick<EventRecord, "gallery_visibility" | "status">;
+type SubmissionFields = Pick<EventRecord, "status" | "submissions_closed_at"> & { suspended_at?: string | null };
+type VisibilityFields = RevealFields &
+  Pick<EventRecord, "gallery_visibility" | "status"> & { suspended_at?: string | null };
 
 export function galleryRevealed(e: RevealFields, now = new Date()): boolean {
   switch (e.reveal_mode) {
@@ -18,7 +19,7 @@ export function galleryRevealed(e: RevealFields, now = new Date()): boolean {
 }
 
 export function acceptingSubmissions(e: SubmissionFields): boolean {
-  return (e.status === "published" || e.status === "active") && !e.submissions_closed_at;
+  return (e.status === "published" || e.status === "active") && !e.submissions_closed_at && !e.suspended_at;
 }
 
 export type GalleryAccess =
@@ -32,7 +33,7 @@ export function galleryAccess(
   now = new Date(),
 ): GalleryAccess {
   if (viewer.isOwner) return { allowed: true };
-  if (e.status === "draft") return { allowed: false, reason: "unavailable" };
+  if (e.status === "draft" || e.suspended_at) return { allowed: false, reason: "unavailable" };
   if (e.gallery_visibility === "private") return { allowed: false, reason: "private" };
   if (e.gallery_visibility === "guests" && !viewer.isGuest) {
     return { allowed: false, reason: "join_required" };
@@ -45,6 +46,20 @@ export function galleryAccess(
     };
   }
   return { allowed: true };
+}
+
+/** Mirrors SQL event_ready_for_email(): the gallery is open and no more photos are coming. */
+export function readyForEmail(
+  e: VisibilityFields,
+  now = new Date(),
+): boolean {
+  return (
+    galleryRevealed(e, now) &&
+    e.gallery_visibility !== "private" &&
+    !e.suspended_at &&
+    e.status !== "draft" &&
+    (e.status === "ended" || e.status === "archived" || e.reveal_mode !== "live")
+  );
 }
 
 export const EVENT_TYPES: { value: EventType; label: string }[] = [

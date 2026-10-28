@@ -25,6 +25,10 @@ npm run dev
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | browser + server | Publishable key. Safe to expose; RLS protects data |
 | `SUPABASE_SECRET_KEY` | server only | Supabase dashboard > Project Settings > API Keys > Secret keys. Never prefix with `NEXT_PUBLIC_` |
 | `NEXT_PUBLIC_SITE_URL` | QR codes, auth emails | Your deployed URL, no trailing slash |
+| `RESEND_API_KEY` | server only | Resend API key, for "photos are ready" emails |
+| `EMAIL_FROM` | server only | Sender, e.g. `Lastshot <photos@yourdomain.com>`. The domain must be verified in Resend |
+| `EMAIL_REPLY_TO` | server only | Optional reply-to address |
+| `CRON_SECRET` | server only | Optional. Locks the email scheduler endpoint (see below) |
 
 Camera access needs HTTPS on phones. To test on a phone locally, use a tunnel (for example `npx localtunnel --port 3000`) or deploy a preview.
 
@@ -43,8 +47,11 @@ Migrations live in `supabase/migrations` and have already been applied to the La
 1. `core_schema`: profiles, events, event_guests, photos, event_settings, rate_limits
 2. `functions_and_security`: lifecycle guard, atomic guest functions, RLS, column grants, storage bucket
 3. `dashboard_stats`: read-only stats for the organiser dashboard
+4. `admin_and_guest_emails`: site admins, suspension, guest email capture and claiming
+5. `admin_views`: admin-only read functions
+6. `email_scheduler`: pg_cron job that triggers the email sender
 
-`supabase/tests/db_rules.sql` exercises the rules (limits, retries, lifecycle, cross-organiser isolation, anon lock-out, path scoping, blocking, closed events, rate limiting). Paste it into the SQL editor; it ends with `ALL TESTS PASSED` and rolls itself back.
+`supabase/tests/db_rules.sql` and `supabase/tests/db_admin_emails.sql` exercise the rules (limits, retries, lifecycle, cross-organiser isolation, anon lock-out, path scoping, blocking, closed events, rate limiting). Paste it into the SQL editor; it ends with `ALL TESTS PASSED` and rolls itself back.
 
 Unit tests for the reveal and access rules: `npm test`.
 
@@ -84,6 +91,31 @@ For events that need strict one-roll-per-person, the remaining options are invit
 ### Event lifecycle
 
 `draft → published → active → ended → archived`, enforced by a trigger. An event becomes `active` when the first photo arrives. Unpublishing is only possible before anyone joins. Settings changes never touch existing photos: lowering the shot limit just leaves some guests with zero shots left.
+
+### "Photos are ready" emails
+
+Guests can leave an email when they join or on the finished-roll screen. An event is ready to email when its gallery is open to guests and no more photos are coming:
+
+- live galleries: when the organiser ends the event
+- scheduled reveal: at the reveal time
+- manual reveal: when the organiser reveals it
+
+Private galleries and suspended events never send. Each address gets one email with a private link (`/e/<code>/g/<token>`) that opens the gallery with downloads on any device. Only a hash of the link is stored. Links are derived from `LINK_SECRET` (or the Supabase secret key), so a retried send reuses the same link.
+
+Sending happens straight after an organiser ends or reveals, and every 5 minutes through Supabase `pg_cron` (job `lastshot-gallery-emails`), which calls `/api/cron/gallery-emails`. Postgres hands each email to exactly one sender (`claim_gallery_emails`, `FOR UPDATE SKIP LOCKED`), retries up to 5 times, and Resend's idempotency key stops duplicates. Every email has an unsubscribe link.
+
+To point the scheduler at your app, add a Vault secret named `lastshot_cron_url` with the value `https://<your-domain>/api/cron/gallery-emails` (Supabase > Project Settings > Vault). If you set `CRON_SECRET` in Vercel, add the same value as `lastshot_cron_secret`.
+
+## Site admin
+
+`/admin` is for site admins only (checked in the database on every request; others get a 404). Admins are flagged in `profiles.is_admin`; addresses in `app_admins` become admins on sign-up (currently theggatonklenner@gmail.com). It covers:
+
+- Overview: organisers, events by status, photos, storage estimate, review queue, email health
+- Events: search, filter, suspend with a reason, delete, inspect and delete photos
+- Organisers: search, grant or remove admin, delete an organiser with all their events
+- Emails: setup checks, failures with errors, run the sender, retry failed
+
+Suspension stops guests joining, shooting and viewing, and can only be lifted by an admin.
 
 ## Data retention and backups
 

@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { guestToken, saveGuestToken } from "@/lib/client/upload-queue";
 import { guestButton, guestSecondary } from "@/components/guest/guest-shell";
 import { cx } from "@/components/ui";
+import { EMAIL_RE, EmailCapture, saveNotifyEmail } from "@/components/guest/email-capture";
 
 type Joined = { displayName: string | null; shotsUsed: number; shotsLimit: number } | null;
 
@@ -18,7 +19,9 @@ export function JoinPanel({
   galleryHref,
   preview,
   previewCameraHref,
+  emailCapture,
 }: {
+  emailCapture?: boolean;
   code: string;
   limit: number;
   joined: Joined;
@@ -32,6 +35,7 @@ export function JoinPanel({
   const [joined, setJoined] = useState<Joined>(initialJoined);
   const [name, setName] = useState("");
   const [accessCode, setAccessCode] = useState("");
+  const [email, setEmail] = useState("");
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -64,6 +68,10 @@ export function JoinPanel({
       setError("Tick the box to agree to the event rules.");
       return;
     }
+    if (email.trim() && !EMAIL_RE.test(email.trim())) {
+      setError("That email address doesn't look right. Fix it or leave it blank.");
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -75,6 +83,7 @@ export function JoinPanel({
       const json = await res.json();
       if (!res.ok) throw new Error(json.message ?? "Couldn't join. Try again.");
       saveGuestToken(code, json.token);
+      if (email.trim()) await saveNotifyEmail(code, email.trim()).catch(() => null);
       router.push(`/e/${code}/camera`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't join. Try again.");
@@ -100,6 +109,7 @@ export function JoinPanel({
             See the gallery
           </Link>
         )}
+        {emailCapture && <EmailCapture code={code} />}
       </div>
     );
   }
@@ -130,6 +140,21 @@ export function JoinPanel({
           className="h-13 rounded-[14px] border border-cream/20 bg-body-2 px-4 text-lg text-cream placeholder:text-cream/40 focus:border-flash focus:outline-none"
         />
       </label>
+      {emailCapture && (
+        <label className="flex flex-col gap-2">
+          <span className="font-semibold">Email me the photos (optional)</span>
+          <input
+            type="email"
+            inputMode="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            maxLength={254}
+            autoComplete="email"
+            placeholder="We'll send one link when they're ready"
+            className="h-13 rounded-[14px] border border-cream/20 bg-body-2 px-4 text-lg text-cream placeholder:text-cream/40 focus:border-flash focus:outline-none"
+          />
+        </label>
+      )}
       {needsCode && (
         <label className="flex flex-col gap-2">
           <span className="font-semibold">Access code</span>

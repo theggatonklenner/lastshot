@@ -10,12 +10,17 @@ const sections: { title: string; body: React.ReactNode }[] = [
       <>
         <p>
           The photos you take, the name you enter (if any), and a random camera ID stored in your browser so your shot
-          count survives a reload. Guests don&apos;t create accounts and we don&apos;t ask for an email or phone number.
+          count survives a reload. Guests don&apos;t create accounts, and an email address is only needed if you ask us to send you the photos.
         </p>
         <p>
           Before a photo is stored we remove its hidden metadata, including GPS location and device details. We keep a
           one-way fingerprint of your network address for a short time to stop people creating endless cameras. It
           can&apos;t be turned back into your address.
+        </p>
+        <p>
+          If you choose to leave an email address, we use it only to send you one email with a private link when the
+          event&apos;s photos are ready. The event organiser can see the address. Every email has an unsubscribe link, and
+          the address is deleted with the event.
         </p>
       </>
     ),

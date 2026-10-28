@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acceptingSubmissions, counterText, galleryAccess, galleryRevealed, remainingShots } from "./rules";
+import { acceptingSubmissions, counterText, galleryAccess, galleryRevealed, readyForEmail, remainingShots } from "./rules";
 
 const base = {
   status: "active" as const,
@@ -76,5 +76,30 @@ describe("counter", () => {
     expect(counterText(27)).toBe("27");
     expect(remainingShots(12, 15)).toBe(0);
     expect(counterText(remainingShots(12, 4))).toBe("08");
+  });
+});
+
+describe("suspension", () => {
+  it("blocks guests and submissions but not the owner", () => {
+    const e = { ...base, suspended_at: "2026-01-01T00:00:00Z" };
+    expect(acceptingSubmissions(e)).toBe(false);
+    expect(galleryAccess(e, { isOwner: false, isGuest: true })).toMatchObject({ reason: "unavailable" });
+    expect(galleryAccess(e, { isOwner: true, isGuest: false })).toEqual({ allowed: true });
+  });
+});
+
+describe("readyForEmail", () => {
+  it("live galleries wait for the event to end", () => {
+    expect(readyForEmail(base)).toBe(false);
+    expect(readyForEmail({ ...base, status: "ended" })).toBe(true);
+  });
+  it("scheduled galleries send at reveal time", () => {
+    const e = { ...base, reveal_mode: "scheduled" as const, reveal_at: "2026-11-01T10:00:00Z" };
+    expect(readyForEmail(e, new Date("2026-11-01T09:00:00Z"))).toBe(false);
+    expect(readyForEmail(e, new Date("2026-11-01T10:00:01Z"))).toBe(true);
+  });
+  it("private or suspended never send", () => {
+    expect(readyForEmail({ ...base, status: "ended", gallery_visibility: "private" })).toBe(false);
+    expect(readyForEmail({ ...base, status: "ended", suspended_at: "2026-01-01T00:00:00Z" })).toBe(false);
   });
 });

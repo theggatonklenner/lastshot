@@ -20,6 +20,14 @@ export default async function GuestEventPage({ params }: PageProps<"/e/[code]">)
   if (!ctx) notFound();
   const { event, guest, accepting, galleryHref, coverUrl, isOwner } = ctx;
 
+  if (event.suspended_at && !isOwner) {
+    return (
+      <GuestMessage title="Event unavailable">
+        This event isn&apos;t available right now. If you&apos;re a guest, check with the organiser.
+      </GuestMessage>
+    );
+  }
+
   if (guest?.blocked) {
     return (
       <GuestMessage title="Camera turned off">

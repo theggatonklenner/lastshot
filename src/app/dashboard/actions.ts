@@ -1,6 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
+import { sendDueGalleryEmails } from "@/lib/server/gallery-emails";
+import { emailConfigured } from "@/lib/server/email";
+import { readyForEmail } from "@/lib/rules";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getUser } from "@/lib/supabase/server";
@@ -31,6 +35,13 @@ function fail(e: unknown): { ok: false; error: string } {
   if (msg.includes("cannot unpublish")) return { ok: false, error: "Guests have already joined, so it can't go back to draft." };
   if (msg.includes("invalid status change")) return { ok: false, error: "That change isn't possible from the event's current state." };
   return { ok: false, error: msg };
+}
+
+/** After anything that might open the gallery, send any emails that are now due. */
+function sendEmailsLater(eventId: string) {
+  after(() =>
+    sendDueGalleryEmails({ eventId }).catch((e) => console.error("gallery email send failed", e)),
+  );
 }
 
 function refresh(id?: string) {
@@ -67,6 +78,7 @@ export async function updateEvent(id: string, input: unknown): Promise<ActionRes
     const { supabase } = await ownedEvent(id);
     const { error } = await supabase.from("events").update(parsed.data).eq("id", id);
     if (error) throw new Error(error.message);
+    sendEmailsLater(id);
     refresh(id);
     return { ok: true };
   } catch (e) {
@@ -126,6 +138,7 @@ export async function changeLifecycle(id: string, action: Lifecycle): Promise<Ac
     }
     const { error } = await supabase.from("events").update(patch).eq("id", id);
     if (error) throw new Error(error.message);
+    sendEmailsLater(id);
     refresh(id);
     return { ok: true };
   } catch (e) {
@@ -201,6 +214,34 @@ export async function updateProfile(displayName: string): Promise<ActionResult> 
     const { error } = await supabase.from("profiles").update({ display_name: name }).eq("id", user.id);
     if (error) throw new Error(error.message);
     refresh();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Organiser presses "Send now". Only sends to people who haven't had it yet. */
+export async function sendGalleryEmailsNow(eventId: string): Promise<ActionResult<{ sent: number; failed: number }>> {
+  try {
+    const { event } = await ownedEvent(eventId);
+    if (!emailConfigured()) return { ok: false, error: "Email sending isn't set up yet. Add the Resend settings in Vercel." };
+    if (!readyForEmail(event)) {
+      return { ok: false, error: "The gallery isn't ready yet. End the event or reveal the gallery first." };
+    }
+    const summary = await sendDueGalleryEmails({ eventId });
+    refresh(eventId);
+    return { ok: true, data: { sent: summary.sent, failed: summary.failed } };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function removeGuestEmail(eventId: string, emailId: string): Promise<ActionResult> {
+  try {
+    const { supabase } = await ownedEvent(eventId);
+    const { error } = await supabase.from("guest_emails").delete().eq("id", emailId).eq("event_id", eventId);
+    if (error) throw new Error(error.message);
+    refresh(eventId);
     return { ok: true };
   } catch (e) {
     return fail(e);

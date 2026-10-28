@@ -26,6 +26,7 @@ function toInput(e: EventRecord): EventInputType {
     require_approval: e.require_approval,
     show_guest_names: e.show_guest_names,
     date_stamp_enabled: e.date_stamp_enabled,
+    email_capture_enabled: e.email_capture_enabled,
     theme: e.theme as EventInputType["theme"],
     accent_color: e.accent_color,
   };

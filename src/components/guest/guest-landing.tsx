@@ -51,6 +51,7 @@ export function GuestLanding({
           galleryHref={galleryHref}
           preview={preview}
           previewCameraHref={previewCameraHref}
+          emailCapture={event.email_capture_enabled && event.gallery_visibility !== "private"}
         />
       </div>
     </GuestShell>

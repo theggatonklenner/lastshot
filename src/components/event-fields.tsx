@@ -256,6 +256,17 @@ export function GalleryFields({
           description="Single photos and the whole gallery as ZIP files."
         />
         <Toggle
+          checked={value.email_capture_enabled}
+          onChange={(v) => set("email_capture_enabled", v)}
+          disabled={value.gallery_visibility === "private"}
+          label="Email guests when the photos are ready"
+          description={
+            value.gallery_visibility === "private"
+              ? "Not available while the gallery is private."
+              : "Guests can leave an email. When the gallery opens, each gets a private link to see and download everything."
+          }
+        />
+        <Toggle
           checked={value.show_guest_names}
           onChange={(v) => set("show_guest_names", v)}
           label="Show who took each photo"

@@ -40,6 +40,9 @@ type EventRow = {
   timezone: string;
   title: string;
   updated_at: string;
+  suspended_at: string | null;
+  suspended_reason: string | null;
+  email_capture_enabled: boolean;
 };
 
 type GuestRow = {
@@ -76,10 +79,25 @@ type PhotoRow = {
 };
 
 type ProfileRow = {
+  is_admin: boolean;
   created_at: string;
   display_name: string | null;
   email: string;
   id: string;
+};
+
+type GuestEmailRow = {
+  id: string;
+  event_id: string;
+  guest_id: string | null;
+  email: string;
+  created_at: string;
+  unsubscribed_at: string | null;
+  sending_started_at: string | null;
+  sent_at: string | null;
+  attempts: number;
+  last_error: string | null;
+  view_token_hash: string | null;
 };
 
 type SettingRow = { event_id: string; id: string; setting_key: string; setting_value: Json };
@@ -118,6 +136,12 @@ export type Database = {
         Row: SettingRow;
         Insert: Partialize<SettingRow> & { event_id: string; setting_key: string };
         Update: Partialize<SettingRow>;
+        Relationships: [];
+      };
+      guest_emails: {
+        Row: GuestEmailRow;
+        Insert: Partialize<GuestEmailRow> & { event_id: string; email: string };
+        Update: Partialize<GuestEmailRow>;
         Relationships: [];
       };
       rate_limits: {
@@ -160,6 +184,50 @@ export type Database = {
         Args: { p_event_ids: string[] };
         Returns: { event_id: string; guests: number; photos: number; pending_review: number; rejected: number; flagged: number }[];
       };
+      is_platform_admin: { Args: never; Returns: boolean };
+      admin_overview: { Args: never; Returns: Json };
+      admin_events: {
+        Args: { p_search: string | null; p_status: string | null; p_limit: number; p_offset: number };
+        Returns: {
+          id: string;
+          code: string;
+          title: string;
+          status: EventStatus;
+          suspended_at: string | null;
+          created_at: string;
+          event_date: string | null;
+          owner_id: string;
+          owner_email: string;
+          guests: number;
+          photos: number;
+          emails: number;
+          total_count: number;
+        }[];
+      };
+      admin_organisers: {
+        Args: { p_search: string | null; p_limit: number; p_offset: number };
+        Returns: {
+          id: string;
+          email: string;
+          display_name: string | null;
+          is_admin: boolean;
+          created_at: string;
+          last_sign_in_at: string | null;
+          confirmed: boolean;
+          events: number;
+          photos: number;
+          total_count: number;
+        }[];
+      };
+      add_guest_email: { Args: { p_guest_id: string; p_email: string }; Returns: GuestEmailRow };
+      claim_gallery_emails: {
+        Args: { p_event_id: string | null; p_limit: number };
+        Returns: { id: string; event_id: string; email: string; event_code: string; event_title: string }[];
+      };
+      event_email_stats: {
+        Args: { p_event_id: string };
+        Returns: { subscribed: number; sent: number; waiting: number; unsubscribed: number; failed: number }[];
+      };
       event_upload_timeline: {
         Args: { p_event_id: string; p_bucket_minutes?: number };
         Returns: { bucket: string; photos: number; camera: number; library: number }[];
@@ -180,4 +248,6 @@ export type Database = {
 export type EventRecord = EventRow;
 export type GuestRecord = GuestRow;
 export type PhotoRecord = PhotoRow;
+export type GuestEmailRecord = GuestEmailRow;
+export type ProfileRecord = ProfileRow;
 export type { EventStatus, EventType, GalleryVisibility, ModerationStatus, RevealMode };

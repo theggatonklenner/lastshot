@@ -299,10 +299,16 @@ export function Camera(props: CameraProps) {
   const ready = phase === "live" && !processing && remaining > 0;
   const noticeText = localError ?? queue.notice?.text ?? null;
 
+  // One shot left: the whole camera turns gold.
+  const goldMode = (remaining === 1 && phase !== "unsupported") || lastMoment;
+
   return (
     <div
-      className="plastic fixed inset-0 flex flex-col text-cream select-none"
-      style={{ ["--shell" as string]: theme.shell }}
+      className={cx("plastic fixed inset-0 flex flex-col text-cream transition-[background] duration-700 select-none", goldMode && "gold-mode")}
+      style={{
+        ["--shell" as string]: goldMode ? "linear-gradient(135deg,#8f6a1f,#f6dc8a 40%,#d4a537 65%,#b8892b)" : theme.shell,
+        ["--shell-solid" as string]: goldMode ? "#d4a537" : theme.shell,
+      }}
     >
       {/* Top strip */}
       <div className="flex items-center justify-between gap-3 px-4 pt-[max(14px,env(safe-area-inset-top))] pb-3">
@@ -407,7 +413,6 @@ export function Camera(props: CameraProps) {
                 <p className="display px-6 text-[clamp(30px,9vw,44px)] text-cream drop-shadow-[0_2px_12px_rgba(0,0,0,0.7)]">
                   That&apos;s the roll
                 </p>
-                <p className="text-cream/85 drop-shadow">Your last one has a gold border.</p>
               </div>
             )}
           </div>
@@ -504,6 +509,8 @@ export function Camera(props: CameraProps) {
               {retaking ? "Deleting…" : "Retake last"}
             </button>
           </span>
+        ) : remaining === 1 ? (
+          <span className="font-semibold text-[#f6dc8a]">Last shot. This one comes out with a gold border.</span>
         ) : (
           <span className="text-cream-dim">{remaining === 0 ? "Finishing up" : "Make it count"}</span>
         )}
@@ -658,7 +665,7 @@ function ViewfinderMessage({
 function ShotCounter({ remaining }: { remaining: number }) {
   return (
     <div className="flex flex-col items-center gap-1" aria-label={`${remaining} shots left`} role="status">
-      <div className="relative h-[52px] w-[64px] overflow-hidden rounded-[10px] bg-black shadow-[inset_0_3px_6px_rgb(0_0_0/0.8),0_0_0_3px_var(--shell)]">
+      <div className="relative h-[52px] w-[64px] overflow-hidden rounded-[10px] bg-black shadow-[inset_0_3px_6px_rgb(0_0_0/0.8),0_0_0_3px_var(--shell-solid)]">
         <div key={remaining} className="counter-roll display numeric flex size-full items-center justify-center text-[30px] text-cream">
           {counterText(remaining)}
         </div>

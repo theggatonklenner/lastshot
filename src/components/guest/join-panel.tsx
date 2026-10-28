@@ -1,0 +1,187 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { guestToken, saveGuestToken } from "@/lib/client/upload-queue";
+import { guestButton, guestSecondary } from "@/components/guest/guest-shell";
+import { cx } from "@/components/ui";
+
+type Joined = { displayName: string | null; shotsUsed: number; shotsLimit: number } | null;
+
+export function JoinPanel({
+  code,
+  limit,
+  joined: initialJoined,
+  needsCode,
+  accepting,
+  galleryHref,
+  preview,
+  previewCameraHref,
+}: {
+  code: string;
+  limit: number;
+  joined: Joined;
+  needsCode: boolean;
+  accepting: boolean;
+  galleryHref: string | null;
+  preview?: boolean;
+  previewCameraHref?: string;
+}) {
+  const router = useRouter();
+  const [joined, setJoined] = useState<Joined>(initialJoined);
+  const [name, setName] = useState("");
+  const [accessCode, setAccessCode] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // If the cookie was cleared but this browser still has its camera token,
+  // restore it quietly so the guest keeps the same roll.
+  useEffect(() => {
+    if (initialJoined || preview) return;
+    const token = guestToken(code);
+    if (!token) return;
+    fetch(`/api/e/${code}/join`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-lastshot-guest": token },
+      body: JSON.stringify({ consent: true }),
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json?.ok) {
+          // The server only resumes an existing guest for a known token.
+          setJoined(json.guest);
+        }
+      })
+      .catch(() => {});
+  }, [code, initialJoined, preview]);
+
+  async function join(e: React.FormEvent) {
+    e.preventDefault();
+    if (preview) return;
+    if (!consent) {
+      setError("Tick the box to agree to the event rules.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/e/${code}/join`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...(guestToken(code) ? { "x-lastshot-guest": guestToken(code)! } : {}) },
+        body: JSON.stringify({ displayName: name || null, accessCode: accessCode || null, consent: true }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message ?? "Couldn't join. Try again.");
+      saveGuestToken(code, json.token);
+      router.push(`/e/${code}/camera`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't join. Try again.");
+      setBusy(false);
+    }
+  }
+
+  if (joined) {
+    const left = Math.max(0, joined.shotsLimit - joined.shotsUsed);
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-lg text-cream-dim">
+          {joined.displayName ? `Welcome back, ${joined.displayName}. ` : "Welcome back. "}
+          {left > 0 ? `You have ${left === 1 ? "1 shot" : `${left} shots`} left.` : "You've used your whole roll."}
+        </p>
+        {left > 0 && accepting && (
+          <Link href={`/e/${code}/camera`} className={guestButton}>
+            Open my camera
+          </Link>
+        )}
+        {galleryHref && (
+          <Link href={galleryHref} className={guestSecondary}>
+            See the gallery
+          </Link>
+        )}
+      </div>
+    );
+  }
+
+  if (!accepting) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-lg text-cream-dim">This event isn&apos;t taking new photos right now.</p>
+        {galleryHref && (
+          <Link href={galleryHref} className={guestSecondary}>
+            See the gallery
+          </Link>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={join} className="flex flex-col gap-5" noValidate>
+      <label className="flex flex-col gap-2">
+        <span className="font-semibold">Your name (optional)</span>
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={40}
+          autoComplete="given-name"
+          placeholder="So people know who took it"
+          className="h-13 rounded-[14px] border border-cream/20 bg-body-2 px-4 text-lg text-cream placeholder:text-cream/40 focus:border-flash focus:outline-none"
+        />
+      </label>
+      {needsCode && (
+        <label className="flex flex-col gap-2">
+          <span className="font-semibold">Access code</span>
+          <input
+            value={accessCode}
+            onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+            maxLength={32}
+            autoComplete="off"
+            autoCapitalize="characters"
+            placeholder="From the sign or the organiser"
+            className="h-13 rounded-[14px] border border-cream/20 bg-body-2 px-4 text-lg tracking-wider text-cream uppercase placeholder:tracking-normal placeholder:normal-case placeholder:text-cream/40 focus:border-flash focus:outline-none"
+          />
+        </label>
+      )}
+      <label className="flex cursor-pointer items-start gap-3 text-[15px] text-cream-dim">
+        <input
+          type="checkbox"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+          className="mt-0.5 size-5 shrink-0 accent-[#ffd23f]"
+        />
+        <span>
+          I&apos;ll only take photos people are happy to share. My photos go to the event organiser and may be shown to
+          other guests. Read the{" "}
+          <Link href="/privacy" className="text-cream underline underline-offset-4" target="_blank">
+            privacy notice
+          </Link>
+          .
+        </span>
+      </label>
+      {error && (
+        <p role="alert" className="rounded-[12px] bg-signal/20 px-4 py-3 text-cream">
+          {error}
+        </p>
+      )}
+      {preview ? (
+        <div className="flex flex-col gap-2">
+          <Link href={previewCameraHref ?? "/try"} className={guestButton}>
+            Try this camera
+          </Link>
+          <p className="text-sm text-cream-dim">Preview mode: photos you take here aren&apos;t uploaded.</p>
+        </div>
+      ) : (
+        <button type="submit" disabled={busy} className={cx(guestButton)}>
+          {busy ? "Loading your camera" : `Get my ${limit} shots`}
+        </button>
+      )}
+      {galleryHref && (
+        <Link href={galleryHref} className={guestSecondary}>
+          See the gallery
+        </Link>
+      )}
+    </form>
+  );
+}

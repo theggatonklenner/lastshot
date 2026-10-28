@@ -1,0 +1,79 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { requireOwnedEvent } from "@/lib/server/organiser";
+import { timeAgo } from "@/lib/format";
+import { remainingShots } from "@/lib/rules";
+import { EmptyState } from "@/components/ui";
+import { BlockButton } from "./block-button";
+
+export const metadata: Metadata = { title: "Guests" };
+
+export default async function GuestsPage({ params }: PageProps<"/dashboard/events/[id]/guests">) {
+  const { id } = await params;
+  const { supabase, event } = await requireOwnedEvent(id);
+  const [{ data: guests }, { data: photos }] = await Promise.all([
+    supabase.from("event_guests").select("*").eq("event_id", id).order("created_at"),
+    supabase.from("photos").select("guest_id").eq("event_id", id).eq("upload_status", "complete"),
+  ]);
+
+  const kept = new Map<string, number>();
+  for (const p of photos ?? []) kept.set(p.guest_id, (kept.get(p.guest_id) ?? 0) + 1);
+
+  if (!guests?.length) {
+    return (
+      <EmptyState title="Nobody has joined yet">
+        Guests appear here when they open the camera. Each phone gets its own anonymous camera ID.
+      </EmptyState>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="max-w-2xl text-graphite">
+        Each row is one phone. Guests don&apos;t sign in, so a camera ID is tied to the browser it was opened in.
+        Shots used includes photos you&apos;ve since deleted.
+      </p>
+      <div className="overflow-x-auto rounded-panel border border-line bg-card">
+        <table className="w-full min-w-[640px] text-left text-[15px]">
+          <thead className="border-b border-line text-sm text-graphite">
+            <tr>
+              <th className="px-4 py-3 font-semibold">Guest</th>
+              <th className="px-4 py-3 font-semibold">Camera ID</th>
+              <th className="px-4 py-3 font-semibold">Photos</th>
+              <th className="px-4 py-3 font-semibold">Shots left</th>
+              <th className="px-4 py-3 font-semibold">Last active</th>
+              <th className="px-4 py-3" />
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line">
+            {guests.map((g, i) => (
+              <tr key={g.id} className={g.blocked ? "bg-signal-soft/50" : undefined}>
+                <td className="px-4 py-3 font-semibold">
+                  {g.display_name || <span className="text-graphite">Guest {i + 1}</span>}
+                  {g.blocked && <span className="ml-2 rounded bg-signal px-1.5 text-xs text-white">Blocked</span>}
+                </td>
+                <td className="px-4 py-3 font-medium text-graphite numeric condensed">{g.id.slice(0, 8)}</td>
+                <td className="px-4 py-3 numeric">
+                  {kept.get(g.id) ? (
+                    <Link href={`/dashboard/events/${id}/photos?guest=${g.id}`} className="font-semibold text-cobalt hover:underline">
+                      {kept.get(g.id)}
+                    </Link>
+                  ) : (
+                    0
+                  )}
+                </td>
+                <td className="px-4 py-3 numeric">
+                  {remainingShots(event.photos_per_guest, g.photos_submitted)} of {event.photos_per_guest}
+                </td>
+                <td className="px-4 py-3 text-graphite">{timeAgo(g.last_active_at)}</td>
+                <td className="px-4 py-3 text-right">
+                  <BlockButton eventId={id} guestId={g.id} blocked={g.blocked} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

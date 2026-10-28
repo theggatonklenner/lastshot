@@ -237,3 +237,25 @@ export function priceCart(
   }
   return { plan, seats, addons, lines, total: lines.reduce((n, l) => n + l.cents, 0) };
 }
+
+export type OrderChoice = { plan: Plan; seats: number; addons: Addon[] };
+
+/** Order as URL params, so a cancelled or abandoned checkout comes back with the same choices. */
+export function orderToParams(o: OrderChoice) {
+  const p = new URLSearchParams();
+  p.set("o_plan", o.plan);
+  if (o.seats) p.set("o_seats", String(o.seats));
+  if (o.addons.length) p.set("o_addons", o.addons.join(","));
+  return p;
+}
+
+export function orderFromParams(sp: Record<string, string | string[] | undefined>): OrderChoice | null {
+  const one = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : undefined);
+  const plan = one("o_plan");
+  if (!plan || !PLAN_ORDER.includes(plan as Plan)) return null;
+  const seats = Number(one("o_seats") ?? 0);
+  const addons = (one("o_addons") ?? "")
+    .split(",")
+    .filter((a): a is Addon => ADDONS.some((x) => x.id === a));
+  return { plan: plan as Plan, seats: validSeatCount(seats) ? seats : 0, addons };
+}

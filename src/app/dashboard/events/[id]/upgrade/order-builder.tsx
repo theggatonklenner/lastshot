@@ -11,9 +11,11 @@ import {
   eventGuestLimit,
   formatPrice,
   hasAddon,
+  orderToParams,
   planRank,
   priceCart,
   upgradePrice,
+  type OrderChoice,
 } from "@/lib/plans";
 import type { Addon, EventRecord, Plan } from "@/lib/database.types";
 import { SeatsSlider } from "./seats-slider";
@@ -33,17 +35,22 @@ export function OrderBuilder({
   ready,
   disabled,
   publishOnPay,
+  initialOrder,
 }: {
   event: EventLike;
   ready: boolean;
   disabled?: boolean;
   /** New-event setup: publish the draft once paid. */
   publishOnPay?: boolean;
+  /** Choices to start from, e.g. after a cancelled checkout. */
+  initialOrder?: OrderChoice | null;
 }) {
-  const [plan, setPlan] = useState<Plan>(event.plan);
-  const [seatsOn, setSeatsOn] = useState(false);
-  const [seats, setSeats] = useState(20);
-  const [addons, setAddons] = useState<Addon[]>([]);
+  const [plan, setPlan] = useState<Plan>(
+    initialOrder && planRank(initialOrder.plan) >= planRank(event.plan) ? initialOrder.plan : event.plan,
+  );
+  const [seatsOn, setSeatsOn] = useState(!!initialOrder?.seats);
+  const [seats, setSeats] = useState(initialOrder?.seats || 20);
+  const [addons, setAddons] = useState<Addon[]>(initialOrder?.addons.filter((a) => !hasAddon(event, a)) ?? []);
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
@@ -63,6 +70,15 @@ export function OrderBuilder({
 
   function pay() {
     setError(null);
+    // Remember the order in the address, so pressing back from Stripe shows the same choices.
+    try {
+      const url = new URL(window.location.href);
+      for (const k of ["o_plan", "o_seats", "o_addons", "cancelled", "paid", "session_id"]) url.searchParams.delete(k);
+      orderToParams({ plan, seats: seatsOn ? seats : 0, addons }).forEach((v, k) => url.searchParams.set(k, v));
+      window.history.replaceState(window.history.state, "", url);
+    } catch {
+      /* not essential */
+    }
     start(async () => {
       const res = await startCartCheckout(
         event.id,

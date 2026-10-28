@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { requireOwnedEvent } from "@/lib/server/organiser";
 import { stripeConfigured, stripeTestMode } from "@/lib/server/stripe";
 import { confirmSession } from "@/lib/server/payments";
-import { ADDONS, eventGuestLimit, formatPrice, hasAddon, paymentLabel, planInfo , addonInfo } from "@/lib/plans";
+import { ADDONS, eventGuestLimit, formatPrice, hasAddon, paymentLabel, planInfo , addonInfo, orderFromParams } from "@/lib/plans";
 import { retentionUntil } from "@/lib/rules";
 import type { Addon } from "@/lib/database.types";
 import { formatDateTime } from "@/lib/format";
@@ -115,6 +115,7 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
         ready={ready}
         disabled={!!event.suspended_at}
         publishOnPay={sp.from === "new" && event.status === "draft"}
+        initialOrder={sp.paid ? null : orderFromParams(sp)}
       />
 
       {ownedAddons.length > 0 && (

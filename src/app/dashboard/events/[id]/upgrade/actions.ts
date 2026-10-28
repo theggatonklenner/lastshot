@@ -6,7 +6,7 @@ import { requireOwnedEvent } from "@/lib/server/organiser";
 import { admin } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/env";
 import { createCheckoutSession, stripeConfigured } from "@/lib/server/stripe";
-import { priceCart } from "@/lib/plans";
+import { orderToParams, priceCart } from "@/lib/plans";
 import { recordError } from "@/lib/server/error-log";
 import type { Addon, Plan } from "@/lib/database.types";
 
@@ -46,7 +46,7 @@ export async function startCartCheckout(
       description: `Lastshot: ${event.title}`,
       email: user.email!,
       successUrl: `${base}?paid=cart${from}&session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${base}?cancelled=1${from}`,
+      cancelUrl: `${base}?cancelled=1${from}&${orderToParams({ plan: parsed.data.plan, seats: parsed.data.seats, addons: parsed.data.addons })}`,
       metadata: {
         event_id: event.id,
         kind: "bundle",

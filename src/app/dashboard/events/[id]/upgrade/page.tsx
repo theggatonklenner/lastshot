@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { requireOwnedEvent } from "@/lib/server/organiser";
 import { stripeConfigured, stripeTestMode } from "@/lib/server/stripe";
@@ -146,7 +147,13 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-sm text-graphite">Receipts are emailed by Stripe. Questions or refunds: support@lastshot.app</p>
+          <p className="mt-3 text-sm text-graphite">
+            Invoices and receipts for all your events are on the{" "}
+            <Link href="/dashboard/billing" className="font-semibold text-cobalt hover:underline">
+              Billing page
+            </Link>
+            .
+          </p>
         </Panel>
       )}
     </div>

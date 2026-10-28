@@ -139,7 +139,11 @@ Photos are deleted 180 days after an event ends (drafts that were never publishe
 
 Each event has a plan: Free (10 guests), Small ($49, 50), Party ($99, 100), Big event ($179, 300) or Unlimited ($299). Prices are in `src/lib/plans.ts`; guest limits are also in `public.plan_guest_limit()` and must match (a unit test checks the TypeScript side). Postgres refuses new guests once the limit is reached (`guest_join`, with the event row locked so two guests can't take the last place); guests who already joined always get back in. The creator gets one "event is full" email.
 
-Upgrading uses Stripe Checkout (`/dashboard/events/<id>/upgrade`). Organisers pay only the difference between plans. The plan changes when Stripe's webhook (`/api/stripe/webhook`, events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`) or the success page confirms the payment with Stripe; `fulfil_payment()` is idempotent and never downgrades. Organisers can't change `events.plan` themselves (column grants). Admins can set a plan from the admin event page.
+Upgrading uses Stripe Checkout (`/dashboard/events/<id>/upgrade`). Organisers pay only the difference between plans. The plan changes when Stripe's webhook (`/api/stripe/webhook`, events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`, `charge.refunded`) or the success page confirms the payment with Stripe; `fulfil_payment()` is idempotent and never downgrades. Organisers can't change `events.plan` themselves (column grants). Admins can set a plan from the admin event page.
+
+### Billing
+
+`/dashboard/billing` lists every payment for the organiser's events with totals, a CSV export (`/api/billing/export`) and links to Stripe's hosted invoice, invoice PDF and card receipt (`/api/billing/<payment id>/invoice|pdf|receipt`, looked up live from Stripe after an RLS check). Refunds made in Stripe are marked on the page when the webhook receives `charge.refunded`.
 
 ### Extra seats
 

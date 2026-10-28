@@ -93,6 +93,25 @@ export function createCheckoutSession(p: {
   );
 }
 
+export type BillingDocs = { invoiceUrl: string | null; invoicePdf: string | null; receiptUrl: string | null; invoiceNumber: string | null };
+
+/** Invoice and receipt links for a paid Checkout session. */
+export async function getBillingDocs(sessionId: string): Promise<BillingDocs> {
+  const s = await stripe<{
+    invoice: { hosted_invoice_url?: string | null; invoice_pdf?: string | null; number?: string | null } | string | null;
+    payment_intent: { latest_charge?: { receipt_url?: string | null } | string | null } | string | null;
+  }>("GET", `checkout/sessions/${encodeURIComponent(sessionId)}`, { expand: ["invoice", "payment_intent.latest_charge"] });
+  const inv = s.invoice && typeof s.invoice === "object" ? s.invoice : null;
+  const pi = s.payment_intent && typeof s.payment_intent === "object" ? s.payment_intent : null;
+  const charge = pi?.latest_charge && typeof pi.latest_charge === "object" ? pi.latest_charge : null;
+  return {
+    invoiceUrl: inv?.hosted_invoice_url ?? null,
+    invoicePdf: inv?.invoice_pdf ?? null,
+    receiptUrl: charge?.receipt_url ?? null,
+    invoiceNumber: inv?.number ?? null,
+  };
+}
+
 export function getCheckoutSession(id: string) {
   return stripe<CheckoutSession>("GET", `checkout/sessions/${encodeURIComponent(id)}`);
 }

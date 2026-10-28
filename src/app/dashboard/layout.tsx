@@ -33,6 +33,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 <Link href="/dashboard/account" className="block rounded-lg px-2 py-2 font-semibold hover:bg-ink/5">
                   Account settings
                 </Link>
+                <Link href="/dashboard/billing" className="block rounded-lg px-2 py-2 font-semibold hover:bg-ink/5">
+                  Billing
+                </Link>
                 <form action={signOut}>
                   <button className="w-full rounded-lg px-2 py-2 text-left font-semibold hover:bg-ink/5">Sign out</button>
                 </form>

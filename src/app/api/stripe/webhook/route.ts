@@ -17,6 +17,14 @@ export async function POST(req: NextRequest) {
   const event = JSON.parse(payload) as { type: string; data: { object: CheckoutSession } };
   const session = event.data.object;
 
+  if (event.type === "charge.refunded") {
+    const charge = event.data.object as unknown as { payment_intent: string | null; refunded: boolean };
+    if (charge.refunded && charge.payment_intent) {
+      await admin().from("payments").update({ status: "refunded" }).eq("stripe_payment_intent", charge.payment_intent);
+    }
+    return Response.json({ received: true });
+  }
+
   switch (event.type) {
     case "checkout.session.completed":
     case "checkout.session.async_payment_succeeded": {

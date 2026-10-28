@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createHmac } from "node:crypto";
-import { PLANS, formatPrice, planInfo, upgradePrice } from "./plans";
+import { PLANS, betterPlanThanSeats, formatPrice, planInfo, seatPrice, seatRate, upgradePrice, validSeatCount } from "./plans";
 import { bonusPending, bonusUnlocked, shotLimit } from "./rules";
 import { verifyStripeSignature } from "./server/stripe";
 
@@ -24,6 +24,26 @@ describe("plans", () => {
     expect(formatPrice(29900)).toBe("$299");
     expect(formatPrice(4950)).toBe("$49.50");
     expect(planInfo("big").name).toBe("Big event");
+  });
+});
+
+describe("extra seats", () => {
+  it("gets cheaper per seat as you add more", () => {
+    expect(seatPrice(5)).toBe(1500);
+    expect(seatPrice(45)).toBe(13500);
+    expect(seatPrice(50)).toBe(12500);
+    expect(seatPrice(150)).toBe(30000);
+    expect(seatRate(500)).toBe(200);
+  });
+  it("only accepts slider values", () => {
+    expect(validSeatCount(5)).toBe(true);
+    expect(validSeatCount(7)).toBe(false);
+    expect(validSeatCount(0)).toBe(false);
+    expect(validSeatCount(505)).toBe(false);
+  });
+  it("suggests a plan when it's cheaper than the seats", () => {
+    expect(betterPlanThanSeats("free", 0, 40)?.id).toBe("small");
+    expect(betterPlanThanSeats("big", 0, 20)).toBeNull();
   });
 });
 

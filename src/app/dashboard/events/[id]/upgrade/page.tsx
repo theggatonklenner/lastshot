@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import { requireOwnedEvent } from "@/lib/server/organiser";
 import { stripeConfigured, stripeTestMode } from "@/lib/server/stripe";
 import { confirmSession } from "@/lib/server/payments";
-import { PLANS, formatPrice, planInfo, planRank, upgradePrice } from "@/lib/plans";
+import { PLANS, eventGuestLimit, formatPrice, planInfo, planRank, upgradePrice } from "@/lib/plans";
 import { formatDateTime } from "@/lib/format";
 import { Notice, Panel, cx } from "@/components/ui";
 import { PlanButton } from "./plan-button";
+import { SeatsSlider } from "./seats-slider";
 
 export const metadata: Metadata = { title: "Plan" };
 
@@ -32,20 +33,23 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
     supabase.rpc("event_stats", { p_event_ids: [id] }),
     supabase
       .from("payments")
-      .select("id, plan, amount_cents, status, paid_at, created_at")
+      .select("id, kind, plan, extra_guests, amount_cents, status, paid_at, created_at")
       .eq("event_id", id)
       .eq("status", "paid")
       .order("paid_at", { ascending: false }),
   ]);
   const guests = stats?.[0]?.guests ?? 0;
   const current = planInfo(event.plan);
+  const limit = eventGuestLimit(event);
   const ready = stripeConfigured();
 
   return (
     <div className="flex flex-col gap-6">
       {sp.paid && !confirmError && (
         <Notice tone="success">
-          Payment received. This event is now on the {current.name} plan. A receipt is on its way to your email.
+          {sp.paid === "seats"
+            ? `Payment received. Up to ${limit} guests can now join. A receipt is on its way to your email.`
+            : `Payment received. This event is now on the ${current.name} plan. A receipt is on its way to your email.`}
         </Notice>
       )}
       {sp.paid && confirmError && (
@@ -63,9 +67,9 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
       <div className="flex flex-col gap-1">
         <h2 className="text-xl font-bold">Plan for this event</h2>
         <p className="text-graphite">
-          {current.guests === null
+          {limit === null
             ? `${guests} ${guests === 1 ? "guest has" : "guests have"} joined. There's no limit on this plan.`
-            : `${guests} of ${current.guests} cameras taken. When it's full, new guests see "This event is full" and you get an email.`}{" "}
+            : `${guests} of ${limit} cameras taken${event.extra_guests ? ` (${current.guests} on the plan plus ${event.extra_guests} extra seats)` : ""}. When it's full, new guests see "This event is full" and you get an email.`}{" "}
           Pay once per event. Upgrading takes effect straight away, even mid-event, and you only pay the difference.
         </p>
       </div>
@@ -110,6 +114,24 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
         })}
       </div>
 
+      {limit !== null && (
+        <Panel>
+          <div className="mb-5 flex flex-col gap-1">
+            <h2 className="text-lg font-bold">Or add extra seats</h2>
+            <p className="text-graphite">
+              Need just a few more guests? Slide to add seats. The more you add, the less each one costs.
+            </p>
+          </div>
+          <SeatsSlider
+            eventId={event.id}
+            plan={event.plan}
+            extraGuests={event.extra_guests}
+            currentLimit={limit}
+            disabled={!ready || !!event.suspended_at}
+          />
+        </Panel>
+      )}
+
       {!!payments?.length && (
         <Panel>
           <h2 className="mb-3 text-lg font-bold">Payments</h2>
@@ -117,7 +139,7 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
             {payments.map((p) => (
               <li key={p.id} className="flex justify-between gap-4 py-2.5 text-[15px]">
                 <span>
-                  {planInfo(p.plan).name} plan
+                  {p.kind === "seats" ? `${p.extra_guests} extra seats` : `${planInfo(p.plan ?? "free").name} plan`}
                   <span className="block text-sm text-graphite">{formatDateTime(p.paid_at ?? p.created_at)}</span>
                 </span>
                 <span className="font-semibold numeric">{formatPrice(p.amount_cents)}</span>

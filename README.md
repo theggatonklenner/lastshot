@@ -54,6 +54,8 @@ Migrations live in `supabase/migrations` and have already been applied to the La
 6. `email_scheduler`: pg_cron job that triggers the email sender
 7. `reports_retention_team_errors`: co-organisers, photo reports, auto-clean, error log
 8. `plans_payments_bonus`: plans and guest limits, Stripe payments, bonus shots
+9. `plans_small_tier`: the 50-guest Small plan, Free down to 10 guests
+10. `extra_seats`: extra seats bought on top of a plan
 
 `supabase/tests/db_rules.sql`, `db_admin_emails.sql` and `db_team_reports_retention.sql` exercise the rules (limits, retries, lifecycle, cross-organiser isolation, anon lock-out, path scoping, blocking, closed events, rate limiting). Paste it into the SQL editor; it ends with `ALL TESTS PASSED` and rolls itself back.
 
@@ -138,6 +140,10 @@ Photos are deleted 180 days after an event ends (drafts that were never publishe
 Each event has a plan: Free (10 guests), Small ($49, 50), Party ($99, 100), Big event ($179, 300) or Unlimited ($299). Prices are in `src/lib/plans.ts`; guest limits are also in `public.plan_guest_limit()` and must match (a unit test checks the TypeScript side). Postgres refuses new guests once the limit is reached (`guest_join`, with the event row locked so two guests can't take the last place); guests who already joined always get back in. The creator gets one "event is full" email.
 
 Upgrading uses Stripe Checkout (`/dashboard/events/<id>/upgrade`). Organisers pay only the difference between plans. The plan changes when Stripe's webhook (`/api/stripe/webhook`, events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.expired`) or the success page confirms the payment with Stripe; `fulfil_payment()` is idempotent and never downgrades. Organisers can't change `events.plan` themselves (column grants). Admins can set a plan from the admin event page.
+
+### Extra seats
+
+On any plan except Unlimited, organisers can add 5 to 500 extra seats with a slider on the upgrade page. The more they add, the less each seat costs: $3 (5–45), $2.50 (50–145), $2 (150+); see `SEAT_TIERS` in `src/lib/plans.ts`. The server recalculates the price, so the slider can't be tampered with. Paid seats are added to `events.extra_guests` by `fulfil_payment()`, and `event_guest_limit()` (plan limit plus extra seats) is what `guest_join` checks. If a bigger plan would cost less than the seats chosen, the page suggests it.
 
 ### Bonus shots
 

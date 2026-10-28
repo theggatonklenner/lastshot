@@ -18,6 +18,36 @@ export const PLANS: PlanInfo[] = [
   { id: "unlimited", name: "Unlimited", price: 29900, guests: null, blurb: "Festivals, schools and anything huge." },
 ];
 
+/** Extra seats on top of a plan (not needed on Unlimited). The more you add, the less each costs. */
+export const SEATS_MIN = 5;
+export const SEATS_MAX = 500;
+export const SEATS_STEP = 5;
+export const SEAT_TIERS = [
+  { from: 150, cents: 200 },
+  { from: 50, cents: 250 },
+  { from: 1, cents: 300 },
+];
+
+/** Price per seat (cents) for a purchase of `seats`. */
+export function seatRate(seats: number) {
+  return (SEAT_TIERS.find((t) => seats >= t.from) ?? SEAT_TIERS[SEAT_TIERS.length - 1]).cents;
+}
+
+/** Total price (cents) for `seats` extra seats. */
+export function seatPrice(seats: number) {
+  return seats * seatRate(seats);
+}
+
+export function validSeatCount(n: number) {
+  return Number.isInteger(n) && n >= SEATS_MIN && n <= SEATS_MAX && n % SEATS_STEP === 0;
+}
+
+/** Guest limit for an event: plan plus extra seats. Mirrors public.event_guest_limit(). */
+export function eventGuestLimit(e: { plan: Plan; extra_guests: number }): number | null {
+  const base = planInfo(e.plan).guests;
+  return base === null ? null : base + e.extra_guests;
+}
+
 export const PLAN_ORDER: Plan[] = ["free", "small", "party", "big", "unlimited"];
 
 export function planInfo(plan: Plan): PlanInfo {
@@ -41,4 +71,18 @@ export function formatPrice(cents: number) {
 export function guestLimitText(plan: Plan) {
   const g = planInfo(plan).guests;
   return g === null ? "No guest limit" : `Up to ${g} guests`;
+}
+
+/**
+ * The cheapest bigger plan that would cover the same number of guests for no
+ * more than the seats would cost. Used to suggest upgrading instead.
+ */
+export function betterPlanThanSeats(current: Plan, extraGuestsOwned: number, seats: number): PlanInfo | null {
+  const needed = (planInfo(current).guests ?? Infinity) + extraGuestsOwned + seats;
+  const seatCost = seatPrice(seats);
+  for (const p of PLANS) {
+    if (planRank(p.id) <= planRank(current)) continue;
+    if ((p.guests ?? Infinity) >= needed && upgradePrice(current, p.id) <= seatCost) return p;
+  }
+  return null;
 }

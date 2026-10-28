@@ -13,15 +13,18 @@ export function AdminEventControls({
   suspendedAt,
   suspendedReason,
   plan,
+  extraGuests,
 }: {
   eventId: string;
   code: string;
   suspendedAt: string | null;
   suspendedReason: string | null;
   plan: string;
+  extraGuests: number;
 }) {
   const [reason, setReason] = useState("");
   const [planChoice, setPlanChoice] = useState(plan);
+  const [extra, setExtra] = useState(String(extraGuests));
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -48,7 +51,15 @@ export function AdminEventControls({
               ))}
             </Select>
           </Field>
-          <Button variant="secondary" pending={pending} disabled={planChoice === plan} onClick={() => run(() => setEventPlan(eventId, planChoice))}>
+          <Field label="Extra seats" htmlFor="extra">
+            <Input id="extra" type="number" min={0} className="w-28" value={extra} onChange={(e) => setExtra(e.target.value)} />
+          </Field>
+          <Button
+            variant="secondary"
+            pending={pending}
+            disabled={planChoice === plan && Number(extra) === extraGuests}
+            onClick={() => run(() => setEventPlan(eventId, planChoice, Number(extra) || 0))}
+          >
             Save plan
           </Button>
         </div>

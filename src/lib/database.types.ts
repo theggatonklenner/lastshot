@@ -49,6 +49,7 @@ type EventRow = {
   full_notified_at: string | null;
   bonus_shots: number;
   bonus_at: string | null;
+  extra_guests: number;
 };
 
 export type Plan = "free" | "small" | "party" | "big" | "unlimited";
@@ -57,7 +58,9 @@ type PaymentRow = {
   id: string;
   event_id: string | null;
   user_id: string | null;
-  plan: Exclude<Plan, "free">;
+  kind: "plan" | "seats";
+  plan: Exclude<Plan, "free"> | null;
+  extra_guests: number;
   amount_cents: number;
   currency: string;
   stripe_session_id: string;
@@ -230,7 +233,7 @@ export type Database = {
       };
       payments: {
         Row: PaymentRow;
-        Insert: Partialize<PaymentRow> & { plan: PaymentRow["plan"]; amount_cents: number; stripe_session_id: string };
+        Insert: Partialize<PaymentRow> & { amount_cents: number; stripe_session_id: string };
         Update: Partialize<PaymentRow>;
         Relationships: [];
       };

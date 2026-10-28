@@ -4,7 +4,7 @@ import { requireOwnedEvent } from "@/lib/server/organiser";
 import { signPaths } from "@/lib/server/media";
 import { guestUrl } from "@/lib/env";
 import { bonusPending, galleryRevealed, retentionUntil, shotLimit } from "@/lib/rules";
-import { planInfo } from "@/lib/plans";
+import { eventGuestLimit } from "@/lib/plans";
 import { formatDateTime, timeAgo } from "@/lib/format";
 import { Countdown } from "@/components/countdown";
 import { CopyButton } from "@/components/copy-button";
@@ -37,7 +37,7 @@ export default async function EventOverview({ params, searchParams }: PageProps<
   const url = guestUrl(event.code);
   const qr = event.status !== "draft" ? await QRCode.toDataURL(url, { margin: 1, width: 360, color: { dark: "#16171a", light: "#ffffff" } }) : null;
   const revealed = galleryRevealed(event);
-  const guestLimit = planInfo(event.plan).guests;
+  const guestLimit = eventGuestLimit(event);
   const nearlyFull = guestLimit !== null && stats.guests >= Math.floor(guestLimit * 0.8);
   const bonusLater = bonusPending(event);
 

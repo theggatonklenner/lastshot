@@ -171,3 +171,30 @@
 @media (prefers-reduced-motion: reduce) {
   .slide, .drift, .new-badge { animation: none }
 }
+
+/* Extra seats slider */
+.seats-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-cobalt) var(--pct, 0%), var(--color-line) var(--pct, 0%));
+  cursor: pointer;
+}
+.seats-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  background: #fff;
+  border: 3px solid var(--color-cobalt);
+  box-shadow: 0 2px 8px rgb(22 23 26 / 0.25);
+}
+.seats-range::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #fff;
+  border: 3px solid var(--color-cobalt);
+}
+.seats-range:focus-visible { outline: 3px solid var(--color-cobalt); outline-offset: 6px; }

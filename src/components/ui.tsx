@@ -247,11 +247,14 @@ export function Logo({ className, tone = "ink" }: { className?: string; tone?: "
   const color = tone === "cream" ? "text-cream" : "text-ink";
   return (
     <span className={cx("inline-flex items-center gap-2", color, className)}>
-      <svg viewBox="0 0 28 28" className="size-7" aria-hidden>
-        <rect x="1" y="5" width="26" height="18" rx="5" className="fill-cobalt" />
-        <circle cx="16" cy="14" r="6" className="fill-body" />
-        <circle cx="16" cy="14" r="3" fill="#6f8cff" opacity="0.6" />
-        <rect x="4" y="8" width="5" height="3" rx="1" className="fill-flash" />
+      <svg viewBox="0 0 512 512" className="size-7" aria-hidden>
+        <rect width="512" height="512" rx="112" fill="#2546d8" />
+        <rect x="318" y="96" width="92" height="44" rx="14" fill="#16171a" />
+        <rect x="56" y="124" width="400" height="280" rx="56" fill="#f1ecdf" />
+        <rect x="96" y="164" width="104" height="58" rx="14" fill="#ffd23f" />
+        <circle cx="300" cy="270" r="104" fill="#16171a" />
+        <circle cx="300" cy="270" r="62" fill="#2546d8" />
+        <circle cx="276" cy="244" r="20" fill="#ffffff" opacity="0.85" />
       </svg>
       <span className="display text-[22px] leading-none tracking-tight">lastshot</span>
     </span>

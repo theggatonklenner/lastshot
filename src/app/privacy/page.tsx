@@ -27,6 +27,12 @@ const sections: { title: string; body: React.ReactNode }[] = [
           with a private link when the photos are ready. Texts are sent through our Australian SMS provider, Texto. The event
           organiser can see the number, every text has an opt-out link, and the number is deleted with the event.
         </p>
+        <p>
+          Separately, you can tick a box to get news and offers from Lastshot. It&apos;s never ticked for you, and
+          leaving it unticked doesn&apos;t change anything else. If you tick it, we keep that email address or mobile
+          number (and when you agreed) after the event, only for Lastshot&apos;s own messages. We don&apos;t share or
+          sell it, and every message has a way to unsubscribe. Email support@lastshot.app to be removed at any time.
+        </p>
       </>
     ),
   },

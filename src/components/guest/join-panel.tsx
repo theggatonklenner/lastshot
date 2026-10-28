@@ -10,6 +10,7 @@ import { EMAIL_RE, EmailCapture, saveNotifyEmail } from "@/components/guest/emai
 import { SmsCapture } from "@/components/guest/sms-capture";
 import { AddToHomeHint } from "@/components/guest/add-to-home";
 import { normalisePhone } from "@/lib/phone";
+import { MARKETING_CONSENT } from "@/lib/marketing";
 
 type Joined = { displayName: string | null; shotsUsed: number; shotsLimit: number } | null;
 
@@ -42,6 +43,7 @@ export function JoinPanel({
   const [accessCode, setAccessCode] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [marketing, setMarketing] = useState(false);
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -99,6 +101,13 @@ export function JoinPanel({
       if (!res.ok) throw new Error(json.message ?? "Couldn't join. Try again.");
       saveGuestToken(code, json.token);
       if (email.trim()) await saveNotifyEmail(code, email.trim()).catch(() => null);
+      if (marketing && (email.trim() || mobile)) {
+        await fetch(`/api/e/${code}/marketing`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-lastshot-guest": json.token },
+          body: JSON.stringify({ email: email.trim() || null, phone: mobile }),
+        }).catch(() => null);
+      }
       if (mobile) {
         await fetch(`/api/e/${code}/sms`, {
           method: "POST",
@@ -193,6 +202,17 @@ export function JoinPanel({
             className="h-13 rounded-[14px] border border-cream/20 bg-body-2 px-4 text-lg text-cream placeholder:text-cream/40 focus:border-flash focus:outline-none"
           />
           <span className="text-sm text-cream-dim">Australian mobiles only. One text with a private link.</span>
+        </label>
+      )}
+      {(emailCapture || smsCapture) && (email.trim() || phone.trim()) && (
+        <label className="flex cursor-pointer items-start gap-3 text-[15px] text-cream-dim">
+          <input
+            type="checkbox"
+            checked={marketing}
+            onChange={(e) => setMarketing(e.target.checked)}
+            className="mt-0.5 size-5 shrink-0 accent-[#ffd23f]"
+          />
+          <span>{MARKETING_CONSENT} (Optional)</span>
         </label>
       )}
       {needsCode && (

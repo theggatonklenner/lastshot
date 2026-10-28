@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Emails" };
 export default async function AdminEmails() {
   await requireAdmin();
   const db = admin();
-  const [{ data: failed }, { data: recent }] = await Promise.all([
+  const [{ data: failed }, { data: recent }, { data: marketing }] = await Promise.all([
     db
       .from("guest_emails")
       .select("id, email, event_id, attempts, last_error, created_at")
@@ -22,7 +22,10 @@ export default async function AdminEmails() {
       .order("created_at", { ascending: false })
       .limit(50),
     db.from("guest_emails").select("id, email, event_id, sent_at").not("sent_at", "is", null).order("sent_at", { ascending: false }).limit(20),
+    db.from("marketing_contacts").select("channel").is("unsubscribed_at", null),
   ]);
+  const optEmail = (marketing ?? []).filter((m) => m.channel === "email").length;
+  const optSms = (marketing ?? []).filter((m) => m.channel === "sms").length;
 
   const eventIds = [...new Set([...(failed ?? []), ...(recent ?? [])].map((r) => r.event_id))];
   const { data: events } = eventIds.length
@@ -55,6 +58,22 @@ export default async function AdminEmails() {
   return (
     <div className="flex flex-col gap-6">
       <h1 className="display-md text-4xl">Emails</h1>
+
+      <Panel>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold">Marketing list</h2>
+            <p className="text-graphite">
+              Guests who ticked &quot;news and offers&quot; when joining: {optEmail} {optEmail === 1 ? "email" : "emails"} and {optSms}{" "}
+              {optSms === 1 ? "mobile" : "mobiles"}. Every message you send them must include a way to unsubscribe.
+            </p>
+          </div>
+          {/* A file download, so a plain link. */}
+          <a href="/api/admin/marketing" download className="rounded-[10px] border border-line px-3 py-2 text-sm font-semibold hover:border-ink/30">
+            Download CSV
+          </a>
+        </div>
+      </Panel>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
         <Panel>

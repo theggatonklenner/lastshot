@@ -360,6 +360,27 @@ export type Database = {
         Update: Partialize<CreditUseRow>;
         Relationships: [];
       };
+      marketing_contacts: {
+        Row: {
+          id: string;
+          channel: "email" | "sms";
+          contact: string;
+          event_id: string | null;
+          consent_text: string;
+          consented_at: string;
+          unsubscribed_at: string | null;
+        };
+        Insert: {
+          channel: "email" | "sms";
+          contact: string;
+          event_id?: string | null;
+          consent_text: string;
+          consented_at?: string;
+          unsubscribed_at?: string | null;
+        };
+        Update: { consented_at?: string; unsubscribed_at?: string | null; consent_text?: string; event_id?: string | null };
+        Relationships: [];
+      };
       rate_limits: {
         Row: { count: number; key: string; window_start: string };
         Insert: { count?: number; key: string; window_start: string };

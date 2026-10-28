@@ -30,11 +30,27 @@ export default async function AdminEmails() {
     : { data: [] as { id: string; title: string }[] };
   const titles = new Map((events ?? []).map((e) => [e.id, e.title]));
 
-  const checks: [string, boolean, string][] = [
-    ["RESEND_API_KEY and EMAIL_FROM", emailConfigured(), "Needed to send anything."],
-    ["CRON_SECRET", !!process.env.CRON_SECRET, "Needed for scheduled reveals to email automatically."],
-    ["NEXT_PUBLIC_SITE_URL", !!process.env.NEXT_PUBLIC_SITE_URL, "Recommended so email links use your main domain."],
+  // [name, state, text when set, text when not set]
+  const checks: [string, "ok" | "missing" | "optional", string][] = [
+    [
+      "RESEND_API_KEY and EMAIL_FROM",
+      emailConfigured() ? "ok" : "missing",
+      emailConfigured() ? "Set." : "Needed to send anything.",
+    ],
+    [
+      "Scheduled sender",
+      "ok",
+      "Supabase checks every 5 minutes and sends emails for scheduled reveals.",
+    ],
+    [
+      "CRON_SECRET",
+      process.env.CRON_SECRET ? "ok" : "optional",
+      process.env.CRON_SECRET
+        ? "Set. The scheduler must send the same value (Vault: lastshot_cron_secret)."
+        : "Optional, not needed. Only adds an extra lock on the scheduler endpoint.",
+    ],
   ];
+  const dot = { ok: "bg-ok", missing: "bg-signal", optional: "bg-line" };
 
   return (
     <div className="flex flex-col gap-6">
@@ -44,13 +60,13 @@ export default async function AdminEmails() {
         <Panel>
           <h2 className="mb-4 text-lg font-bold">Setup</h2>
           <ul className="flex flex-col gap-3">
-            {checks.map(([name, ok, hint]) => (
+            {checks.map(([name, state, text]) => (
               <li key={name} className="flex items-start gap-3">
-                <span className={`mt-1 size-3 shrink-0 rounded-full ${ok ? "bg-ok" : "bg-signal"}`} aria-hidden />
+                <span className={`mt-1 size-3 shrink-0 rounded-full ${dot[state]}`} aria-hidden />
                 <span>
                   <span className="font-semibold">{name}</span>
-                  <span className="sr-only">{ok ? " is set" : " is missing"}</span>
-                  <span className="block text-sm text-graphite">{ok ? "Set." : hint}</span>
+                  <span className="sr-only">{state === "ok" ? " is working" : state === "missing" ? " is missing" : " is optional"}</span>
+                  <span className="block text-sm text-graphite">{text}</span>
                 </span>
               </li>
             ))}

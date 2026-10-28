@@ -147,7 +147,7 @@ Upgrading uses Stripe Checkout (`/dashboard/events/<id>/upgrade`). Organisers pa
 
 ### Extra seats
 
-On any plan except Unlimited, organisers can add 5 to 500 extra seats with a slider on the upgrade page. The more they add, the less each seat costs: $2 (5–45), $1.50 (50–145), $1 (150+); see `SEAT_TIERS` in `src/lib/plans.ts`. The server recalculates the price, so the slider can't be tampered with. Paid seats are added to `events.extra_guests` by `fulfil_payment()`, and `event_guest_limit()` (plan limit plus extra seats) is what `guest_join` checks. If a bigger plan would cost less than the seats chosen, the page suggests it.
+On any plan except Unlimited, organisers can add 5 to 500 extra seats with a slider on the upgrade page. The more they add, the less each seat costs: $2 (5–45), $1.50 (50–145), $1 (150+); see `SEAT_TIERS` in `src/lib/plans.ts`. The server recalculates the price, so the slider can't be tampered with. Paid seats are added to `events.extra_guests` by `fulfil_payment()`, and `event_guest_limit()` (plan limit plus extra seats) is what `guest_join` checks.
 
 ### Watermarks
 

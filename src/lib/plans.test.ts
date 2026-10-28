@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createHmac } from "node:crypto";
-import { PLANS, betterPlanThanSeats, formatPrice, planInfo, seatDiscount, seatPrice, seatRate, upgradePrice, validSeatCount } from "./plans";
+import { PLANS, formatPrice, planInfo, seatDiscount, seatPrice, seatRate, upgradePrice, validSeatCount } from "./plans";
 import { bonusPending, bonusUnlocked, shotLimit } from "./rules";
 import { verifyStripeSignature } from "./server/stripe";
 
@@ -41,10 +41,6 @@ describe("extra seats", () => {
     expect(validSeatCount(7)).toBe(false);
     expect(validSeatCount(0)).toBe(false);
     expect(validSeatCount(505)).toBe(false);
-  });
-  it("suggests a plan when it's cheaper than the seats", () => {
-    expect(betterPlanThanSeats("free", 0, 40)?.id).toBe("small");
-    expect(betterPlanThanSeats("big", 0, 20)).toBeNull();
   });
 });
 

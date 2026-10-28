@@ -78,17 +78,3 @@ export function guestLimitText(plan: Plan) {
   const g = planInfo(plan).guests;
   return g === null ? "No guest limit" : `Up to ${g} guests`;
 }
-
-/**
- * The cheapest bigger plan that would cover the same number of guests for no
- * more than the seats would cost. Used to suggest upgrading instead.
- */
-export function betterPlanThanSeats(current: Plan, extraGuestsOwned: number, seats: number): PlanInfo | null {
-  const needed = (planInfo(current).guests ?? Infinity) + extraGuestsOwned + seats;
-  const seatCost = seatPrice(seats);
-  for (const p of PLANS) {
-    if (planRank(p.id) <= planRank(current)) continue;
-    if ((p.guests ?? Infinity) >= needed && upgradePrice(current, p.id) <= seatCost) return p;
-  }
-  return null;
-}

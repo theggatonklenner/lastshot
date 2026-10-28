@@ -7,7 +7,6 @@ import {
   SEATS_MIN,
   SEATS_STEP,
   SEAT_TIERS,
-  betterPlanThanSeats,
   formatPrice,
   seatDiscount,
   seatPrice,
@@ -35,7 +34,6 @@ export function SeatsSlider({
   const total = seatPrice(seats);
   const fullPrice = seats * SEAT_TIERS[SEAT_TIERS.length - 1].cents;
   const saving = fullPrice - total;
-  const better = betterPlanThanSeats(plan, extraGuests, seats);
   const pct = ((seats - SEATS_MIN) / (SEATS_MAX - SEATS_MIN)) * 100;
   const tiers = [...SEAT_TIERS].reverse();
   const discount = seatDiscount(seats);
@@ -120,13 +118,6 @@ export function SeatsSlider({
         })}
       </ul>
 
-      {better && (
-        <p className="rounded-control bg-flash/30 px-4 py-3 text-[15px]">
-          Tip: the <span className="font-semibold">{better.name}</span> plan covers{" "}
-          {better.guests === null ? "unlimited" : better.guests} guests and costs less than these seats. Choose it above
-          instead.
-        </p>
-      )}
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <Button type="submit" disabled={disabled || pending}>

@@ -37,7 +37,12 @@ export default async function SharePage({
     <div className="flex flex-col gap-6">
       {sp.published && (
         <Notice tone="success">
-          Published. Your event is ready for guests.
+          Published. Your event is ready for guests. You can still change anything, including the name, date, cover,
+          shots and gallery settings, from{" "}
+          <Link href={`/dashboard/events/${id}/settings`} className="font-semibold underline">
+            Edit event
+          </Link>
+          . Changes show to guests straight away.
         </Notice>
       )}
       {event.access_code_hash && (

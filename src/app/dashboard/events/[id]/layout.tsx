@@ -29,7 +29,15 @@ export default async function EventLayout({ children, params }: LayoutProps<"/da
             {event.plan !== "unlimited" && <span className="text-cobalt"> · Upgrade</span>}
           </Link>
         </div>
-        <p className="text-graphite">{formatEventDate(event.event_date, event.start_time, event.end_time)}</p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-graphite">{formatEventDate(event.event_date, event.start_time, event.end_time)}</p>
+          <Link
+            href={`/dashboard/events/${event.id}/settings`}
+            className="rounded-[10px] border border-line bg-card px-3 py-1.5 text-sm font-semibold hover:border-ink/30"
+          >
+            Edit event
+          </Link>
+        </div>
       </div>
       {event.suspended_at && (
         <Notice tone="error">

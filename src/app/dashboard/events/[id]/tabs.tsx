@@ -13,7 +13,7 @@ export function EventTabs({ id, pendingReview }: { id: string; pendingReview: nu
     { href: `${base}/guests`, label: "Guests" },
     { href: `${base}/share`, label: "Share" },
     { href: `${base}/analytics`, label: "Analytics" },
-    { href: `${base}/settings`, label: "Settings" },
+    { href: `${base}/settings`, label: "Edit" },
   ];
   return (
     <nav className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0" aria-label="Event sections">

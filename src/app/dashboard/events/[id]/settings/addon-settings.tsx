@@ -47,7 +47,7 @@ export function AddonSettings({
           )}
           <div className="border-t border-line" />
           {hasBranding ? (
-            <LogoEditor eventId={eventId} initialUrl={logoUrl} />
+            <LogoEditor endpoint={`/api/events/${eventId}/logo`} initialUrl={logoUrl} />
           ) : (
             <Locked title="Your branding" body="Show your logo instead of Lastshot's on guest pages, signs and the slideshow." href={plan} />
           )}
@@ -151,7 +151,17 @@ function FrameEditor({
   );
 }
 
-function LogoEditor({ eventId, initialUrl }: { eventId: string; initialUrl: string | null }) {
+export function LogoEditor({
+  endpoint,
+  initialUrl,
+  title = "Your branding",
+  body = "Your logo replaces Lastshot's on the guest pages, printable signs and TV slideshow. A PNG with a transparent background works best.",
+}: {
+  endpoint: string;
+  initialUrl: string | null;
+  title?: string;
+  body?: string;
+}) {
   const [url, setUrl] = useState(initialUrl);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,7 +173,7 @@ function LogoEditor({ eventId, initialUrl }: { eventId: string; initialUrl: stri
     try {
       const form = new FormData();
       form.append("logo", file, file.name);
-      const res = await fetch(`/api/events/${eventId}/logo`, { method: "POST", body: form });
+      const res = await fetch(endpoint, { method: "POST", body: form });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message ?? "The logo didn't upload.");
       setUrl(json.url);
@@ -177,7 +187,7 @@ function LogoEditor({ eventId, initialUrl }: { eventId: string; initialUrl: stri
 
   async function remove() {
     setBusy(true);
-    await fetch(`/api/events/${eventId}/logo`, { method: "DELETE" });
+    await fetch(endpoint, { method: "DELETE" });
     setUrl(null);
     setBusy(false);
   }
@@ -185,11 +195,8 @@ function LogoEditor({ eventId, initialUrl }: { eventId: string; initialUrl: stri
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <p className="font-semibold">Your branding</p>
-        <p className="text-sm text-graphite">
-          Your logo replaces Lastshot&apos;s on the guest pages, printable signs and TV slideshow. A PNG with a transparent
-          background works best.
-        </p>
+        <p className="font-semibold">{title}</p>
+        <p className="text-sm text-graphite">{body}</p>
       </div>
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex h-24 w-56 items-center justify-center rounded-control border border-dashed border-line bg-body p-3">

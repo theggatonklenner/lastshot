@@ -2,7 +2,7 @@ import Link from "next/link";
 import QRCode from "qrcode";
 import { requireOwnedEvent } from "@/lib/server/organiser";
 import { signPaths } from "@/lib/server/media";
-import { guestUrl } from "@/lib/env";
+import { eventUrl } from "@/lib/env";
 import { bonusPending, galleryRevealed, isPast, retentionUntil, shotLimit } from "@/lib/rules";
 import { eventGuestLimit } from "@/lib/plans";
 import { formatDateTime, timeAgo } from "@/lib/format";
@@ -34,7 +34,7 @@ export default async function EventOverview({ params, searchParams }: PageProps<
   const reviewed = stats.photos ? Math.round(((stats.photos - stats.pending_review) / stats.photos) * 100) : 100;
   const thumbs = await signPaths((recent ?? []).map((p) => p.thumbnail_path));
 
-  const url = guestUrl(event.code);
+  const url = eventUrl(event);
   const qr = event.status !== "draft" ? await QRCode.toDataURL(url, { margin: 1, width: 360, color: { dark: "#16171a", light: "#ffffff" } }) : null;
   const revealed = galleryRevealed(event);
   const guestLimit = eventGuestLimit(event);

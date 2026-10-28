@@ -11,9 +11,10 @@ import { Button, Notice, cx } from "@/components/ui";
 import { formatEventDate, formatDateTime } from "@/lib/format";
 import { eventTypeLabel } from "@/lib/rules";
 import { THEMES } from "@/lib/themes";
-import { ADDONS, PLANS, addonPrice, formatPrice, priceCart } from "@/lib/plans";
+import { ADDONS, PLANS, addonPrice, applyDiscount, formatPrice, planInfo, planRank, priceCart } from "@/lib/plans";
+import { DiscountField, type AppliedDiscount } from "@/components/discount-field";
 import { PlanPrice } from "@/components/plan-price";
-import { startCartCheckout } from "@/app/dashboard/events/[id]/upgrade/actions";
+import { redeemCredit, startCartCheckout } from "@/app/dashboard/events/[id]/upgrade/actions";
 import type { Addon, Plan } from "@/lib/database.types";
 
 const STEPS = ["Basics", "The roll", "Gallery", "Cover", "Plan", "Add-ons", "Review"] as const;
@@ -21,7 +22,17 @@ const PLAN_STEP = 4;
 const ADDON_STEP = 5;
 const REVIEW_STEP = 6;
 
-export function Wizard() {
+export type WizardCredit = { id: string; pack: string; plan: Exclude<Plan, "free">; branding: boolean; remaining: number };
+
+export function Wizard({
+  credits = [],
+  initialDiscount = null,
+  standingDiscount = null,
+}: {
+  credits?: WizardCredit[];
+  initialDiscount?: AppliedDiscount | null;
+  standingDiscount?: AppliedDiscount | null;
+}) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [value, setValue] = useState<EventInputType>(() => ({
@@ -31,13 +42,31 @@ export function Wizard() {
   const [accessCode, setAccessCode] = useState("");
   const [plan, setPlan] = useState<Plan>("free");
   const [addons, setAddons] = useState<Addon[]>([]);
-  // Same pricing the server uses before charging (a new event starts on Free with nothing added).
+  const [creditId, setCreditId] = useState<string | null>(null);
+  const credit = credits.find((c) => c.id === creditId) ?? null;
+  const [discount, setDiscount] = useState<AppliedDiscount | null>(initialDiscount);
+  // Same pricing the server uses before charging. A new event starts on Free with nothing added,
+  // or on the pack's plan when a pack event is used.
   const cart = priceCart(
-    { plan: "free", extra_guests: 0, addon_frame: false, addon_branding: false, addon_storage: false, addon_storage_1y: false, addon_sms: false },
+    {
+      plan: credit?.plan ?? "free",
+      extra_guests: 0,
+      addon_frame: false,
+      addon_branding: !!credit?.branding,
+      addon_storage: false,
+      addon_storage_1y: false,
+      addon_sms: false,
+    },
     { plan, seats: 0, addons },
   );
-  const lineItems = cart.lines.map((l) => ({ label: l.label, cents: l.cents }));
-  const total = cart.total;
+  const priced = applyDiscount(cart.lines, discount?.percent ?? 0, discount?.code ?? null);
+  const lineItems = [
+    ...(credit
+      ? [{ label: `${planInfo(credit.plan).name} plan${credit.branding ? " + Your branding" : ""} (from your pack)`, cents: 0 }]
+      : []),
+    ...priced.lines.map((l) => ({ label: l.label, cents: l.cents })),
+  ];
+  const total = priced.total;
   const [eventId, setEventId] = useState<string | null>(null);
   const [savedCode, setSavedCode] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof EventInputType, string>>>({});
@@ -114,9 +143,20 @@ export function Wizard() {
     start(async () => {
       const id = await save();
       if (!id) return;
+      if (credit) {
+        const used = await redeemCredit(id, credit.id);
+        if (!used.ok) {
+          setMessage(`${used.error} Your event is saved as a draft.`);
+          return;
+        }
+      }
       if (total > 0) {
         // Price everything, then charge. The event goes live once Stripe confirms the payment.
-        const pay = await startCartCheckout(id, { plan, seats: 0, addons }, { publish: true, from: "new" });
+        const pay = await startCartCheckout(
+          id,
+          { plan, seats: 0, addons },
+          { publish: true, from: "new", code: discount?.code ?? undefined },
+        );
         if (pay?.error) setMessage(`${pay.error} Your event is saved as a draft.`);
         return;
       }
@@ -189,9 +229,40 @@ export function Wizard() {
             <CoverPicker eventId={eventId} initialUrl={null} accent={value.theme === "custom" ? value.accent_color : "#2546d8"} />
           </div>
         )}
-        {step === PLAN_STEP && <PlanStep plan={plan} setPlan={setPlan} />}
-        {step === ADDON_STEP && <AddonStep plan={plan} addons={addons} setAddons={setAddons} />}
-        {step === REVIEW_STEP && <Review value={value} hasCode={!!accessCode} items={lineItems} total={total} />}
+        {step === PLAN_STEP && (
+          <>
+            {credits.length > 0 && (
+              <PackChoice
+                credits={credits}
+                creditId={creditId}
+                setCreditId={(id) => {
+                  setCreditId(id);
+                  const c = credits.find((x) => x.id === id);
+                  if (c && planRank(plan) < planRank(c.plan)) setPlan(c.plan);
+                  if (c?.branding) setAddons((a) => a.filter((x) => x !== "branding"));
+                }}
+              />
+            )}
+            <PlanStep plan={plan} setPlan={setPlan} minPlan={credit?.plan} />
+          </>
+        )}
+        {step === ADDON_STEP && (
+          <AddonStep plan={plan} addons={addons} setAddons={setAddons} included={credit?.branding ? ["branding"] : []} />
+        )}
+        {step === REVIEW_STEP && (
+          <Review
+            value={value}
+            hasCode={!!accessCode}
+            items={lineItems}
+            total={total}
+            before={priced.discount > 0 ? cart.total : null}
+            discountField={
+              cart.total > 0 ? (
+                <DiscountField eventId={null} applied={discount} setApplied={setDiscount} standing={standingDiscount} />
+              ) : null
+            }
+          />
+        )}
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6">
           <div className="flex gap-2">
@@ -230,7 +301,51 @@ export function Wizard() {
   );
 }
 
-export function PlanStep({ plan, setPlan }: { plan: Plan; setPlan: (p: Plan) => void }) {
+function PackChoice({
+  credits,
+  creditId,
+  setCreditId,
+}: {
+  credits: WizardCredit[];
+  creditId: string | null;
+  setCreditId: (id: string | null) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2 rounded-panel border border-cobalt/40 bg-cobalt-soft/40 p-4">
+      <p className="font-bold">Use an event from your pack</p>
+      <div className="flex flex-col gap-2" role="radiogroup" aria-label="Pack">
+        {[...credits, null].map((c) => (
+          <label key={c?.id ?? "none"} className="flex cursor-pointer items-center gap-3 rounded-control bg-card px-3 py-2.5">
+            <input
+              type="radio"
+              name="credit"
+              checked={creditId === (c?.id ?? null)}
+              onChange={() => setCreditId(c?.id ?? null)}
+              className="size-4 accent-cobalt"
+            />
+            <span>
+              {c ? (
+                <>
+                  <span className="font-semibold">
+                    {planInfo(c.plan).name}
+                    {c.branding ? " with your branding" : ""}
+                  </span>{" "}
+                  <span className="text-sm text-graphite">
+                    ({c.remaining} left in your {c.pack === "school" ? "school pack" : `${c.pack}-event pack`})
+                  </span>
+                </>
+              ) : (
+                <span className="font-semibold">Don&apos;t use a pack event</span>
+              )}
+            </span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function PlanStep({ plan, setPlan, minPlan }: { plan: Plan; setPlan: (p: Plan) => void; minPlan?: Plan }) {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-graphite">
@@ -244,8 +359,9 @@ export function PlanStep({ plan, setPlan }: { plan: Plan; setPlan: (p: Plan) => 
             role="radio"
             aria-checked={plan === p.id}
             onClick={() => setPlan(p.id)}
+            disabled={!!minPlan && planRank(p.id) < planRank(minPlan)}
             className={cx(
-              "flex flex-col gap-3 rounded-panel border bg-card p-4 text-left transition-colors",
+              "flex flex-col gap-3 rounded-panel border bg-card p-4 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-45",
               plan === p.id ? "border-cobalt ring-2 ring-cobalt/25" : "border-line hover:border-ink/30",
               p.id === "unlimited" && "sm:col-span-2",
             )}
@@ -257,7 +373,7 @@ export function PlanStep({ plan, setPlan }: { plan: Plan; setPlan: (p: Plan) => 
                 className={cx("size-5 rounded-full border-2", plan === p.id ? "border-cobalt bg-cobalt shadow-[inset_0_0_0_3px_white]" : "border-line")}
               />
             </span>
-            <PlanPrice plan={p.id} />
+            {minPlan === p.id ? <PlanPrice plan={p.id} priceOverride={0} note="From your pack" /> : <PlanPrice plan={p.id} />}
             <span className="font-semibold">{p.guests === null ? "Unlimited guests" : `Up to ${p.guests} guests`}</span>
             <span className="text-sm text-graphite">
               {p.id === "free" ? "Small Lastshot watermark on photos." : "No watermark."} {p.blurb}
@@ -269,7 +385,18 @@ export function PlanStep({ plan, setPlan }: { plan: Plan; setPlan: (p: Plan) => 
   );
 }
 
-export function AddonStep({ plan, addons, setAddons }: { plan: Plan; addons: Addon[]; setAddons: (a: Addon[]) => void }) {
+export function AddonStep({
+  plan,
+  addons,
+  setAddons,
+  included = [],
+}: {
+  plan: Plan;
+  addons: Addon[];
+  setAddons: (a: Addon[]) => void;
+  /** Add-ons already covered (e.g. branding from a pack). */
+  included?: Addon[];
+}) {
   const toggle = (id: Addon) => {
     if (addons.includes(id)) return setAddons(addons.filter((a) => a !== id));
     // 1 year and 2 years of storage are either/or.
@@ -281,13 +408,15 @@ export function AddonStep({ plan, addons, setAddons }: { plan: Plan; addons: Add
       <p className="text-graphite">Optional extras for this event. You can also add them later from the event&apos;s plan page.</p>
       <div className="grid gap-3 sm:grid-cols-2">
         {ADDONS.map((a) => {
-          const on = addons.includes(a.id);
+          const inPack = included.includes(a.id);
+          const on = inPack || addons.includes(a.id);
           return (
             <button
               key={a.id}
               type="button"
               role="checkbox"
               aria-checked={on}
+              disabled={inPack}
               onClick={() => toggle(a.id)}
               className={cx(
                 "flex flex-col gap-2 rounded-panel border bg-card p-4 text-left transition-colors",
@@ -297,7 +426,7 @@ export function AddonStep({ plan, addons, setAddons }: { plan: Plan; addons: Add
               <span className="flex items-start justify-between gap-3">
                 <span className="font-bold">{a.name}</span>
                 <span className="flex shrink-0 items-center gap-2">
-                  <span className="display text-xl numeric">{formatPrice(addonPrice(a.id, { plan }))}</span>
+                  <span className="display text-xl numeric">{inPack ? "In pack" : formatPrice(addonPrice(a.id, { plan }))}</span>
                   <span
                     aria-hidden
                     className={cx(
@@ -323,11 +452,15 @@ function Review({
   hasCode,
   items,
   total,
+  before,
+  discountField,
 }: {
   value: EventInputType;
   hasCode: boolean;
   items: { label: string; cents: number }[];
   total: number;
+  before: number | null;
+  discountField: React.ReactNode;
 }) {
   const reveal =
     value.reveal_mode === "live"
@@ -368,7 +501,10 @@ function Review({
       <div className="rounded-panel border border-line bg-card">
         <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
           <span className="font-semibold">Your order</span>
-          <span className="display text-2xl numeric">{total ? formatPrice(total) : "$0"}</span>
+          <span className="flex items-baseline gap-2">
+            {before !== null && <span className="text-graphite line-through numeric">{formatPrice(before)}</span>}
+            <span className="display text-2xl numeric">{total ? formatPrice(total) : "$0"}</span>
+          </span>
         </div>
         <ul className="divide-y divide-line">
           {items.length === 0 ? (
@@ -377,11 +513,12 @@ function Review({
             items.map((i) => (
               <li key={i.label} className="flex justify-between gap-3 px-4 py-2.5">
                 <span>{i.label}</span>
-                <span className="numeric">{formatPrice(i.cents)}</span>
+                <span className="numeric">{i.cents ? formatPrice(i.cents) : "Included"}</span>
               </li>
             ))
           )}
         </ul>
+        {discountField && <div className="flex flex-col border-t border-line px-4 py-3">{discountField}</div>}
         {total > 0 && (
           <p className="border-t border-line px-4 py-3 text-sm text-graphite">
             AUD, paid once with a card through Stripe. Your event goes live as soon as the payment goes through. If you

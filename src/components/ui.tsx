@@ -209,8 +209,12 @@ export function Notice({
   );
 }
 
-export function Panel({ className, children }: { className?: string; children: ReactNode }) {
-  return <section className={cx("rounded-panel border border-line bg-card p-5 sm:p-6", className)}>{children}</section>;
+export function Panel({ className, children, id }: { className?: string; children: ReactNode; id?: string }) {
+  return (
+    <section id={id} className={cx("rounded-panel border border-line bg-card p-5 sm:p-6", className)}>
+      {children}
+    </section>
+  );
 }
 
 export function EmptyState({

@@ -15,7 +15,7 @@ export async function GET() {
   if (!user) return jsonError(401, "unauthorised", "Sign in first.");
   const { data } = await supabase
     .from("payments")
-    .select("id, paid_at, created_at, kind, plan, addon, addons, extra_guests, amount_cents, currency, status, receipt_email, events(title)")
+    .select("id, paid_at, created_at, kind, plan, addon, addons, extra_guests, amount_cents, currency, status, receipt_email, pack, pack_plan, pack_events, pack_branding, events(title)")
     .in("status", ["paid", "refunded"])
     .order("paid_at", { ascending: false });
 
@@ -26,7 +26,7 @@ export async function GET() {
   }[]) {
     rows.push([
       (p.paid_at ?? p.created_at).slice(0, 10),
-      p.events?.title ?? "Deleted event",
+      p.kind === "pack" ? "Event pack" : (p.events?.title ?? "Deleted event"),
       paymentLabel(p as never),
       (p.amount_cents / 100).toFixed(2),
       p.currency.toUpperCase(),

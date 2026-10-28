@@ -8,6 +8,7 @@ import {
   PLANS,
   UPGRADE_DISCOUNT,
   addonPrice,
+  applyDiscount,
   eventGuestLimit,
   formatPrice,
   hasAddon,
@@ -19,11 +20,12 @@ import {
 } from "@/lib/plans";
 import type { Addon, EventRecord, Plan } from "@/lib/database.types";
 import { SeatsSlider } from "./seats-slider";
+import { DiscountField, type AppliedDiscount } from "@/components/discount-field";
 import { startCartCheckout } from "./actions";
 
 type EventLike = Pick<
   EventRecord,
-  "id" | "plan" | "extra_guests" | "addon_frame" | "addon_branding" | "addon_storage" | "addon_storage_1y" | "addon_sms"
+  "id" | "plan" | "extra_guests" | "addon_frame" | "addon_branding" | "addon_storage" | "addon_storage_1y" | "addon_sms" | "addon_link"
 >;
 
 /**
@@ -36,6 +38,8 @@ export function OrderBuilder({
   disabled,
   publishOnPay,
   initialOrder,
+  initialDiscount,
+  standingDiscount,
 }: {
   event: EventLike;
   ready: boolean;
@@ -44,7 +48,11 @@ export function OrderBuilder({
   publishOnPay?: boolean;
   /** Choices to start from, e.g. after a cancelled checkout. */
   initialOrder?: OrderChoice | null;
+  /** Discount already worked out on the server (a saved code or a venue discount). */
+  initialDiscount?: AppliedDiscount | null;
+  standingDiscount?: AppliedDiscount | null;
 }) {
+  const [discount, setDiscount] = useState<AppliedDiscount | null>(initialDiscount ?? null);
   const [plan, setPlan] = useState<Plan>(
     initialOrder && planRank(initialOrder.plan) >= planRank(event.plan) ? initialOrder.plan : event.plan,
   );
@@ -55,6 +63,7 @@ export function OrderBuilder({
   const [pending, start] = useTransition();
 
   const cart = priceCart(event, { plan, seats: seatsOn ? seats : 0, addons });
+  const priced = applyDiscount(cart.lines, discount?.percent ?? 0, discount?.code ?? null);
   const limitAfter = (() => {
     const base = PLANS.find((p) => p.id === (cart.plan ?? event.plan))!.guests;
     return base === null ? null : base + event.extra_guests + cart.seats;
@@ -83,7 +92,7 @@ export function OrderBuilder({
       const res = await startCartCheckout(
         event.id,
         { plan, seats: seatsOn ? seats : 0, addons },
-        publishOnPay ? { publish: true, from: "new" } : {},
+        { ...(publishOnPay ? { publish: true, from: "new" as const } : {}), code: discount?.code ?? undefined },
       );
       if (res?.error) setError(res.error);
     });
@@ -249,9 +258,15 @@ export function OrderBuilder({
               ))}
             </ul>
           )}
+          {cart.total > 0 && (
+            <DiscountField eventId={event.id} applied={discount} setApplied={setDiscount} standing={standingDiscount} />
+          )}
           <div className="flex items-baseline justify-between border-t border-line pt-3">
             <span className="font-semibold">Total</span>
-            <span className="display text-3xl numeric">{cart.total ? formatPrice(cart.total) : "$0"}</span>
+            <span className="flex items-baseline gap-2">
+              {priced.discount > 0 && <span className="text-graphite line-through numeric">{formatPrice(cart.total)}</span>}
+              <span className="display text-3xl numeric">{priced.total ? formatPrice(priced.total) : "$0"}</span>
+            </span>
           </div>
           {limitAfter !== currentLimit && (
             <p className="text-sm text-graphite">
@@ -260,7 +275,7 @@ export function OrderBuilder({
           )}
           {error && <Notice tone="error">{error}</Notice>}
           <Button type="button" onClick={pay} pending={pending} disabled={!cart.total || !ready || disabled}>
-            {cart.total ? `Pay ${formatPrice(cart.total)}` : "Nothing to pay"}
+            {priced.total ? `Pay ${formatPrice(priced.total)}` : "Nothing to pay"}
           </Button>
           <p className="text-xs text-graphite">AUD, paid once through Stripe. Everything takes effect as soon as the payment goes through.</p>
         </Panel>

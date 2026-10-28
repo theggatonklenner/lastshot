@@ -138,9 +138,22 @@ export const ADDONS: AddonInfo[] = [
     blurb: "Guests can leave a mobile number and get a text when the photos are ready.",
     detail: "Price depends on your plan, because bigger events send more texts.",
   },
+  {
+    id: "link",
+    name: "Custom link",
+    blurb: "A short, easy link like lastshot.app/sam-and-alex for your signs and invites.",
+    detail: "Choose the link after paying. The usual QR code keeps working too.",
+  },
 ];
 
-type AddonFlags = { addon_frame: boolean; addon_branding: boolean; addon_storage: boolean; addon_storage_1y?: boolean; addon_sms: boolean };
+type AddonFlags = {
+  addon_frame: boolean;
+  addon_branding: boolean;
+  addon_storage: boolean;
+  addon_storage_1y?: boolean;
+  addon_sms: boolean;
+  addon_link?: boolean;
+};
 
 /**
  * Add-on price in AUD cents. SMS scales with the event's size. Extending
@@ -158,6 +171,8 @@ export function addonPrice(addon: Addon, e: { plan: Plan; addon_storage_1y?: boo
       return e.addon_storage_1y ? discounted(1900) : 1900;
     case "sms":
       return e.plan === "unlimited" ? 5900 : e.plan === "big" ? 2900 : e.plan === "party" ? 1500 : 900;
+    case "link":
+      return 900;
   }
 }
 
@@ -173,11 +188,26 @@ export function hasAddon(e: AddonFlags, addon: Addon) {
     // 2 years covers 1 year.
     storage1y: !!e.addon_storage_1y || e.addon_storage,
     sms: e.addon_sms,
+    link: !!e.addon_link,
   }[addon];
 }
 
 /** Short name for a payment line, e.g. "Party plan + Custom photo frame". */
-export function paymentLabel(p: { kind: string; plan: Plan | null; addon: Addon | null; addons?: Addon[] | null; extra_guests: number }) {
+export function paymentLabel(p: {
+  kind: string;
+  plan: Plan | null;
+  addon: Addon | null;
+  addons?: Addon[] | null;
+  extra_guests: number;
+  pack?: string | null;
+  pack_plan?: Plan | null;
+  pack_events?: number | null;
+  pack_branding?: boolean;
+}) {
+  if (p.kind === "pack") {
+    if (p.pack === "school") return "School pack";
+    return `${p.pack_events ?? ""}-event pack (${planInfo(p.pack_plan ?? "small").name}${p.pack_branding ? ", with branding" : ""})`;
+  }
   if (p.kind === "seats") return `${p.extra_guests} extra seats`;
   if (p.kind === "addon" && p.addon) return addonInfo(p.addon).name;
   if (p.kind === "bundle") {
@@ -258,4 +288,85 @@ export function orderFromParams(sp: Record<string, string | string[] | undefined
     .split(",")
     .filter((a): a is Addon => ADDONS.some((x) => x.id === a));
   return { plan: plan as Plan, seats: validSeatCount(seats) ? seats : 0, addons };
+}
+
+/** Takes a percentage off every line (rounded to the cent), so Stripe shows the real price of each item. */
+export function applyDiscount(lines: CartLine[], percent: number, code: string | null) {
+  if (!percent) return { lines, discount: 0, total: lines.reduce((n, l) => n + l.cents, 0) };
+  const out = lines.map((l) => {
+    const cents = Math.round((l.cents * (100 - percent)) / 100);
+    return { ...l, cents, detail: `${l.detail} ${percent}% off${code ? ` with ${code}` : ""}.`.trim() };
+  });
+  const before = lines.reduce((n, l) => n + l.cents, 0);
+  const total = out.reduce((n, l) => n + l.cents, 0);
+  return { lines: out, discount: before - total, total };
+}
+
+// ---------------------------------------------------------------------------
+// Bulk packs: buy several events up front at a discount.
+// ---------------------------------------------------------------------------
+
+export type PackId = "5" | "10" | "school";
+export const BRANDING_PRICE = 2900;
+
+export const PACKS: { id: Exclude<PackId, "school">; events: number; percent: number }[] = [
+  { id: "5", events: 5, percent: 20 },
+  { id: "10", events: 10, percent: 30 },
+];
+
+export const SCHOOL_PACK = {
+  id: "school" as const,
+  events: 6,
+  plan: "big" as const,
+  branding: true,
+  cents: 89900,
+  blurb: "Six Big events (up to 300 guests each) with your school's logo on every one. Formals, sports days, camps, graduations and more.",
+};
+
+/** Price of a pack, rounded to the dollar. */
+export function packPrice(pack: PackId, plan: Exclude<Plan, "free">, branding: boolean) {
+  if (pack === "school") return SCHOOL_PACK.cents;
+  const p = PACKS.find((x) => x.id === pack)!;
+  const each = planInfo(plan).price + (branding ? BRANDING_PRICE : 0);
+  return Math.round((each * p.events * (100 - p.percent)) / 100 / 100) * 100;
+}
+
+/** What the same events would cost bought one at a time. */
+export function packValue(pack: PackId, plan: Exclude<Plan, "free">, branding: boolean) {
+  if (pack === "school") return SCHOOL_PACK.events * (planInfo(SCHOOL_PACK.plan).price + BRANDING_PRICE);
+  const p = PACKS.find((x) => x.id === pack)!;
+  return p.events * (planInfo(plan).price + (branding ? BRANDING_PRICE : 0));
+}
+
+// ---------------------------------------------------------------------------
+// Short links: lastshot.app/<slug> for venue pages and the Custom link add-on.
+// ---------------------------------------------------------------------------
+
+/** Top-level paths the app already uses, plus words kept back for later. */
+const RESERVED_SLUGS = new Set([
+  "admin", "api", "auth", "dashboard", "e", "go", "invite", "login", "signup", "forgot-password",
+  "reset-password", "privacy", "terms", "try", "show", "pricing", "help", "support", "about", "blog",
+  "venues", "venue", "partners", "partner", "school", "schools", "app", "www", "mail", "static",
+  "lastshot", "billing", "account", "settings", "contact", "careers", "press", "legal", "status",
+  "favicon", "manifest", "robots", "sitemap", "icon", "apple-icon", "new",
+]);
+
+export const SLUG_PATTERN = /^[a-z0-9]([a-z0-9-]{1,38}[a-z0-9])$/;
+
+export function normaliseSlug(input: string) {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+/** null when the slug is fine, otherwise the reason it can't be used. */
+export function slugProblem(slug: string): string | null {
+  if (slug.length < 3) return "Use at least 3 letters or numbers.";
+  if (slug.length > 40) return "Keep it to 40 characters or fewer.";
+  if (!SLUG_PATTERN.test(slug)) return "Use letters, numbers and dashes only.";
+  if (RESERVED_SLUGS.has(slug)) return "That link is reserved. Try another.";
+  return null;
 }

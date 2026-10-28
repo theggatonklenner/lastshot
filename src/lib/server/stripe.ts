@@ -104,7 +104,6 @@ export function createCheckoutSession(p: {
           },
         }),
       ),
-      allow_promotion_codes: "true",
       invoice_creation: { enabled: "true" },
     },
     p.idempotencyKey,

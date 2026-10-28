@@ -61,9 +61,11 @@ type EventRow = {
   brand_logo_path: string | null;
   mystery_at: string | null;
   mystery_prompt: string | null;
+  addon_link: boolean;
+  custom_slug: string | null;
 };
 
-export type Addon = "frame" | "branding" | "storage" | "storage1y" | "sms";
+export type Addon = "frame" | "branding" | "storage" | "storage1y" | "sms" | "link";
 
 type SmsRow = {
   id: string;
@@ -85,7 +87,7 @@ type PaymentRow = {
   id: string;
   event_id: string | null;
   user_id: string | null;
-  kind: "plan" | "seats" | "addon" | "bundle";
+  kind: "plan" | "seats" | "addon" | "bundle" | "pack";
   addon: Addon | null;
   addons: Addon[];
   publish_on_paid: boolean;
@@ -99,7 +101,56 @@ type PaymentRow = {
   receipt_email: string | null;
   created_at: string;
   paid_at: string | null;
+  subtotal_cents: number | null;
+  discount_cents: number;
+  discount_code_id: string | null;
+  partner_id: string | null;
+  pack: string | null;
+  pack_plan: Exclude<Plan, "free"> | null;
+  pack_events: number | null;
+  pack_branding: boolean;
 };
+
+export type DiscountKind = "referral" | "reward" | "second_event" | "partner" | "manual";
+type DiscountCodeRow = {
+  id: string;
+  code: string;
+  kind: DiscountKind;
+  percent_off: number;
+  owner_id: string | null;
+  partner_id: string | null;
+  source_event_id: string | null;
+  max_uses: number | null;
+  uses: number;
+  first_order_only: boolean;
+  expires_at: string | null;
+  active: boolean;
+  created_at: string;
+};
+type RedemptionRow = { id: string; code_id: string; user_id: string | null; payment_id: string; created_at: string };
+type PartnerRow = {
+  id: string;
+  slug: string;
+  name: string;
+  blurb: string | null;
+  discount_percent: number;
+  revenue_share_percent: number;
+  contact_email: string | null;
+  active: boolean;
+  created_at: string;
+};
+type CreditRow = {
+  id: string;
+  owner_id: string;
+  pack: string;
+  plan: Exclude<Plan, "free">;
+  branding: boolean;
+  total: number;
+  remaining: number;
+  payment_id: string | null;
+  created_at: string;
+};
+type CreditUseRow = { id: string; credit_id: string; event_id: string | null; created_at: string };
 
 type GuestRow = {
   blocked: boolean;
@@ -142,6 +193,9 @@ type ProfileRow = {
   display_name: string | null;
   email: string;
   id: string;
+  partner_id: string | null;
+  referred_by: string | null;
+  brand_logo_path: string | null;
 };
 
 type GuestEmailRow = {
@@ -275,6 +329,36 @@ export type Database = {
         Update: Partialize<PaymentRow>;
         Relationships: [];
       };
+      discount_codes: {
+        Row: DiscountCodeRow;
+        Insert: Partialize<DiscountCodeRow> & { code: string; kind: DiscountKind; percent_off: number };
+        Update: Partialize<DiscountCodeRow>;
+        Relationships: [];
+      };
+      discount_redemptions: {
+        Row: RedemptionRow;
+        Insert: Partialize<RedemptionRow> & { code_id: string; payment_id: string };
+        Update: Partialize<RedemptionRow>;
+        Relationships: [];
+      };
+      partners: {
+        Row: PartnerRow;
+        Insert: Partialize<PartnerRow> & { slug: string; name: string };
+        Update: Partialize<PartnerRow>;
+        Relationships: [];
+      };
+      event_credits: {
+        Row: CreditRow;
+        Insert: Partialize<CreditRow> & { owner_id: string; pack: string; plan: CreditRow["plan"]; total: number; remaining: number };
+        Update: Partialize<CreditRow>;
+        Relationships: [];
+      };
+      credit_uses: {
+        Row: CreditUseRow;
+        Insert: Partialize<CreditUseRow> & { credit_id: string };
+        Update: Partialize<CreditUseRow>;
+        Relationships: [];
+      };
       rate_limits: {
         Row: { count: number; key: string; window_start: string };
         Insert: { count?: number; key: string; window_start: string };
@@ -353,6 +437,9 @@ export type Database = {
         Args: { p_session_id: string; p_payment_intent: string | null; p_email: string | null };
         Returns: PaymentRow;
       };
+      redeem_event_credit: { Args: { p_credit_id: string; p_event_id: string; p_user_id: string }; Returns: EventRow };
+      create_second_event_code: { Args: { p_event_id: string }; Returns: DiscountCodeRow | null };
+      ensure_referral_code: { Args: { p_user_id: string }; Returns: DiscountCodeRow };
       admin_events: {
         Args: { p_search: string | null; p_status: string | null; p_limit: number; p_offset: number };
         Returns: {
@@ -422,3 +509,6 @@ export type ErrorRecord = ErrorRow;
 export type { EventStatus, EventType, GalleryVisibility, ModerationStatus, RevealMode };
 export type PaymentRecord = PaymentRow;
 export type SmsRecord = SmsRow;
+export type DiscountCodeRecord = DiscountCodeRow;
+export type PartnerRecord = PartnerRow;
+export type CreditRecord = CreditRow;

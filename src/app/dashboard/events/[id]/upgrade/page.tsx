@@ -9,6 +9,9 @@ import type { Addon } from "@/lib/database.types";
 import { formatDateTime } from "@/lib/format";
 import { Notice, Panel } from "@/components/ui";
 import { OrderBuilder } from "./order-builder";
+import { CreditPicker } from "./credit-picker";
+import { resolveDiscount, savedCode } from "@/lib/server/discounts";
+import { planRank } from "@/lib/plans";
 
 export const metadata: Metadata = { title: "Plan" };
 
@@ -46,6 +49,29 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
   const ownedAddons = ADDONS.filter((a) => hasAddon(event, a.id) && !(a.id === "storage1y" && event.addon_storage));
   const keepUntil = retentionUntil(event);
   const ready = stripeConfigured();
+
+  // Discount to start with: a code saved from a referral or venue link, or the venue's standing discount.
+  const { data: auth } = await supabase.auth.getUser();
+  const userId = auth.user!.id;
+  const [withCode, standing] = await Promise.all([
+    savedCode().then((c) => (c ? resolveDiscount(userId, c, { eventId: event.id }) : null)),
+    resolveDiscount(userId, null, { eventId: event.id }),
+  ]);
+  const toApplied = (d: Awaited<ReturnType<typeof resolveDiscount>>["discount"] | undefined) =>
+    d ? { code: d.code, percent: d.percent, label: d.label } : null;
+  const standingDiscount = toApplied(standing.discount);
+  const initialDiscount = toApplied(withCode?.discount) ?? standingDiscount;
+
+  // Pack credits that would add something to this event.
+  const { data: credits } = await supabase
+    .from("event_credits")
+    .select("id, pack, plan, branding, remaining")
+    .eq("owner_id", userId)
+    .gt("remaining", 0)
+    .order("created_at");
+  const usable = (credits ?? []).filter(
+    (c) => planRank(c.plan) > planRank(event.plan) || (c.branding && !event.addon_branding),
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -110,7 +136,11 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
         </p>
       </div>
 
+      {usable.length > 0 && !event.suspended_at && <CreditPicker eventId={event.id} credits={usable} />}
+
       <OrderBuilder
+        initialDiscount={initialDiscount}
+        standingDiscount={standingDiscount}
         event={event}
         ready={ready}
         disabled={!!event.suspended_at}
@@ -125,7 +155,11 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
             {ownedAddons.map((a) => (
               <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
                 <span className="font-semibold">{a.name}</span>
-                {a.id === "frame" || a.id === "branding" ? (
+                {a.id === "link" ? (
+                  <Link href={`/dashboard/events/${event.id}/share#custom-link`} className="text-sm font-semibold text-cobalt hover:underline">
+                    {event.custom_slug ? `lastshot.app/${event.custom_slug}` : "Choose your link"}
+                  </Link>
+                ) : a.id === "frame" || a.id === "branding" ? (
                   <Link href={`/dashboard/events/${event.id}/settings#addons`} className="text-sm font-semibold text-cobalt hover:underline">
                     {a.id === "frame" ? "Set up the frame" : "Upload your logo"}
                   </Link>

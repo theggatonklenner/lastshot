@@ -10,6 +10,7 @@ import { z } from "zod";
 import { getUser } from "@/lib/supabase/server";
 import { EventInput, firstIssue } from "@/lib/event-schema";
 import { deleteEventsCompletely } from "@/lib/server/cleanup";
+import { sendSecondEventCode } from "@/lib/server/second-event";
 import type { EventRecord } from "@/lib/database.types";
 
 export type ActionResult<T = undefined> = { ok: true; data?: T } | { ok: false; error: string };
@@ -139,6 +140,9 @@ export async function changeLifecycle(id: string, action: Lifecycle): Promise<Ac
     const { error } = await supabase.from("events").update(patch).eq("id", id);
     if (error) throw new Error(error.message);
     sendEmailsLater(id);
+    if (action === "end" || action === "archive") {
+      after(() => sendSecondEventCode(id).catch((e) => console.error("next-event code failed", e)));
+    }
     refresh(id);
     return { ok: true };
   } catch (e) {

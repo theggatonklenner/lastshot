@@ -13,7 +13,12 @@ type Row = {
   id: string;
   paid_at: string | null;
   created_at: string;
-  kind: "plan" | "seats" | "addon" | "bundle";
+  kind: "plan" | "seats" | "addon" | "bundle" | "pack";
+  pack: string | null;
+  pack_plan: Plan | null;
+  pack_events: number | null;
+  pack_branding: boolean;
+  discount_cents: number;
   addon: Addon | null;
   addons: Addon[];
   plan: Plan | null;
@@ -30,7 +35,7 @@ export default async function BillingPage() {
   const { supabase, user } = await requireOrganiser("/dashboard/billing");
   const { data } = await supabase
     .from("payments")
-    .select("id, paid_at, created_at, kind, plan, addon, addons, extra_guests, amount_cents, status, receipt_email, user_id, event_id, events(title)")
+    .select("id, paid_at, created_at, kind, plan, addon, addons, extra_guests, amount_cents, status, receipt_email, user_id, event_id, pack, pack_plan, pack_events, pack_branding, discount_cents, events(title)")
     .in("status", ["paid", "refunded"])
     .order("paid_at", { ascending: false });
   const rows = (data ?? []) as unknown as Row[];
@@ -82,7 +87,7 @@ export default async function BillingPage() {
             <li key={r.id} className="flex flex-col gap-2 rounded-panel border border-line bg-card p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate font-semibold">{r.events?.title ?? "Deleted event"}</p>
+                  <p className="truncate font-semibold">{r.kind === "pack" ? "Event pack" : (r.events?.title ?? "Deleted event")}</p>
                   <p className="text-sm text-graphite">
                     {itemName(r)} ·{" "}
                     {formatDateTime(r.paid_at ?? r.created_at)}
@@ -131,6 +136,10 @@ export default async function BillingPage() {
                       {r.event_id && r.events ? (
                         <Link href={`/dashboard/events/${r.event_id}/upgrade`} className="font-semibold hover:text-cobalt">
                           {r.events.title}
+                        </Link>
+                      ) : r.kind === "pack" ? (
+                        <Link href="/dashboard/packs" className="font-semibold hover:text-cobalt">
+                          Event pack
                         </Link>
                       ) : (
                         <span className="text-graphite">Deleted event</span>
@@ -201,5 +210,5 @@ function Stat({ label, value, sub }: { label: string; value: string; sub: string
 }
 
 function itemName(r: Row) {
-  return paymentLabel(r);
+  return paymentLabel(r) + (r.discount_cents > 0 ? ` (saved ${formatPrice(r.discount_cents)})` : "");
 }

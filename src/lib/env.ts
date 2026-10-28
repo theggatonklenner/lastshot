@@ -32,3 +32,8 @@ export function siteUrl(): string {
 export function guestUrl(code: string): string {
   return `${siteUrl()}/e/${code}`;
 }
+
+/** The link guests use: the event's custom link when it has one, otherwise /e/<code>. */
+export function eventUrl(e: { code: string; addon_link?: boolean; custom_slug?: string | null }): string {
+  return e.addon_link && e.custom_slug ? `${siteUrl()}/${e.custom_slug}` : guestUrl(e.code);
+}

@@ -42,6 +42,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 <Link href="/dashboard/billing" className="block rounded-lg px-2 py-2 font-semibold hover:bg-ink/5">
                   Billing
                 </Link>
+                <Link href="/dashboard/packs" className="block rounded-lg px-2 py-2 font-semibold hover:bg-ink/5">
+                  Event packs
+                </Link>
+                <Link href="/dashboard/codes" className="block rounded-lg px-2 py-2 font-semibold hover:bg-ink/5">
+                  Refer a friend
+                </Link>
                 {profile?.is_admin && (
                   <Link href="/admin" className="block rounded-lg px-2 py-2 font-semibold hover:bg-ink/5 sm:hidden">
                     Admin

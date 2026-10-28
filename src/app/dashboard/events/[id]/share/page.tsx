@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { requireOwnedEvent } from "@/lib/server/organiser";
-import { guestUrl } from "@/lib/env";
+import { eventUrl, siteUrl } from "@/lib/env";
+import Link from "next/link";
+import { CustomLink } from "./custom-link";
 import { signOne } from "@/lib/server/media";
 import { formatEventDate } from "@/lib/format";
 import { LinkButton, Notice, Panel, buttonClass } from "@/components/ui";
@@ -15,7 +17,8 @@ export default async function SharePage({
   const { id } = await params;
   const sp = await searchParams;
   const { event } = await requireOwnedEvent(id);
-  const url = guestUrl(event.code);
+  const url = eventUrl(event);
+  const host = siteUrl().replace(/^https?:\/\//, "");
 
   if (event.status === "draft") {
     return (
@@ -55,6 +58,22 @@ export default async function SharePage({
           logoUrl={event.addon_branding ? await signOne(event.brand_logo_path) : null}
         />
         <div className="flex flex-col gap-6">
+          {event.addon_link ? (
+            <CustomLink eventId={id} host={host} initial={event.custom_slug} />
+          ) : (
+            <Panel id="custom-link">
+              <h2 className="mb-2 text-lg font-bold">Want a shorter link?</h2>
+              <p className="mb-3 text-graphite">
+                Get an easy one like {host}/sam-and-alex for invites and signs, for $9.
+              </p>
+              <Link
+                href={`/dashboard/events/${id}/upgrade?o_plan=${event.plan}&o_addons=link#addons`}
+                className="font-semibold text-cobalt hover:underline"
+              >
+                Add a custom link
+              </Link>
+            </Panel>
+          )}
           <Panel>
             <h2 className="mb-2 text-lg font-bold">Slideshow for a TV</h2>
             <p className="mb-4 text-graphite">

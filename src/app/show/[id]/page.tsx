@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { requireOwnedEvent } from "@/lib/server/organiser";
-import { guestUrl } from "@/lib/env";
+import { eventUrl } from "@/lib/env";
 import { signOne } from "@/lib/server/media";
 import { Slideshow } from "./slideshow";
 
@@ -20,7 +20,7 @@ export default async function SlideshowPage({
     <Slideshow
       eventId={event.id}
       title={event.title}
-      guestUrl={guestUrl(event.code)}
+      guestUrl={eventUrl(event)}
       shots={event.photos_per_guest}
       logoUrl={event.addon_branding ? await signOne(event.brand_logo_path) : null}
     />

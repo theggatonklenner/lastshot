@@ -233,6 +233,15 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                 Photos are kept for 180 days, or up to 2 years with an add-on.
               </li>
             </ul>
+            <div className="mt-8 flex flex-col gap-2 rounded-panel border border-line bg-card p-6 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+              <p className="text-graphite">
+                <span className="font-semibold text-ink">Planners, venues and schools:</span> buy 5 events and save 20%, or 10
+                and save 30%, with your logo on every one. The school pack is 6 Big events with your branding for $899.
+              </p>
+              <LinkButton href="/dashboard/packs" variant="secondary" className="shrink-0">
+                See event packs
+              </LinkButton>
+            </div>
           </div>
         </section>
 

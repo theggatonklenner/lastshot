@@ -58,7 +58,35 @@ export default async function GuestsPage({ params }: PageProps<"/dashboard/event
             Each row is one phone. Guests don&apos;t sign in, so a camera ID is tied to the browser it was opened in.
             Shots used includes photos you&apos;ve since deleted.
           </p>
-          <div className="overflow-x-auto rounded-panel border border-line bg-card">
+          {/* Phones: one card per guest */}
+          <ul className="flex flex-col gap-2 sm:hidden">
+            {guests.map((g) => (
+              <li
+                key={g.id}
+                className={`flex items-center justify-between gap-3 rounded-panel border border-line p-4 ${g.blocked ? "bg-signal-soft/50" : "bg-card"}`}
+              >
+                <div className="min-w-0">
+                  <p className="font-semibold">
+                    {label.get(g.id)}
+                    {g.blocked && <span className="ml-2 rounded bg-signal px-1.5 text-xs text-white">Blocked</span>}
+                  </p>
+                  <p className="text-sm text-graphite numeric">
+                    {kept.get(g.id) ? (
+                      <Link href={`/dashboard/events/${id}/photos?guest=${g.id}`} className="font-semibold text-cobalt">
+                        {kept.get(g.id)} photos
+                      </Link>
+                    ) : (
+                      "0 photos"
+                    )}
+                    {" · "}
+                    {remainingShots(limit, g.photos_submitted)} of {limit} left · {timeAgo(g.last_active_at)}
+                  </p>
+                </div>
+                <BlockButton eventId={id} guestId={g.id} blocked={g.blocked} />
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto rounded-panel border border-line bg-card sm:block">
             <table className="w-full min-w-[640px] text-left text-[15px]">
               <thead className="border-b border-line text-sm text-graphite">
                 <tr>

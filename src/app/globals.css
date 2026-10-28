@@ -40,8 +40,11 @@
 @layer base {
   html {
     -webkit-text-size-adjust: 100%;
+    /* Safety net: nothing should ever make the page scroll sideways on a phone. */
+    overflow-x: clip;
   }
   body {
+    overflow-x: clip;
     background: var(--color-paper);
     color: var(--color-ink);
     font-family: var(--font-sans);

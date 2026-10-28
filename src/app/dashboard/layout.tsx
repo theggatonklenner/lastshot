@@ -17,7 +17,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </Link>
           <div className="flex items-center gap-2">
             {profile?.is_admin && (
-              <LinkButton href="/admin" size="sm" variant="ghost">
+              <LinkButton href="/admin" size="sm" variant="ghost" className="hidden sm:inline-flex">
                 Admin
               </LinkButton>
             )}
@@ -25,10 +25,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
               New event
             </LinkButton>
             <details className="relative">
-              <summary className="flex h-9 cursor-pointer list-none items-center rounded-[10px] px-3 text-[15px] font-semibold hover:bg-ink/5 [&::-webkit-details-marker]:hidden">
-                <span className="max-w-[12ch] truncate sm:max-w-[20ch]">{name}</span>
+              <summary className="flex h-9 cursor-pointer list-none items-center rounded-[10px] px-0 text-[15px] sm:px-3 font-semibold hover:bg-ink/5 [&::-webkit-details-marker]:hidden">
+                <span
+                  aria-label={name ?? "Account"}
+                  className="flex size-9 items-center justify-center rounded-full bg-cobalt text-sm font-bold text-white sm:hidden"
+                >
+                  {(name ?? "?").trim().charAt(0).toUpperCase()}
+                </span>
+                <span className="hidden max-w-[20ch] truncate sm:inline">{name}</span>
               </summary>
-              <div className="absolute right-0 mt-2 w-56 rounded-control border border-line bg-card p-2 shadow-lg">
+              <div className="absolute right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] rounded-control border border-line bg-card p-2 shadow-lg">
                 <p className="truncate px-2 py-1.5 text-sm text-graphite">{profile?.email}</p>
                 <Link href="/dashboard/account" className="block rounded-lg px-2 py-2 font-semibold hover:bg-ink/5">
                   Account settings
@@ -36,6 +42,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 <Link href="/dashboard/billing" className="block rounded-lg px-2 py-2 font-semibold hover:bg-ink/5">
                   Billing
                 </Link>
+                {profile?.is_admin && (
+                  <Link href="/admin" className="block rounded-lg px-2 py-2 font-semibold hover:bg-ink/5 sm:hidden">
+                    Admin
+                  </Link>
+                )}
                 <form action={signOut}>
                   <button className="w-full rounded-lg px-2 py-2 text-left font-semibold hover:bg-ink/5">Sign out</button>
                 </form>

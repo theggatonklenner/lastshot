@@ -73,7 +73,43 @@ export default async function BillingPage() {
           Events start free for up to 10 guests. When you upgrade an event or add seats, the invoice shows up here.
         </EmptyState>
       ) : (
-        <Panel className="p-0">
+        <>
+        {/* Phones: one card per payment */}
+        <ul className="flex flex-col gap-2 sm:hidden">
+          {rows.map((r) => (
+            <li key={r.id} className="flex flex-col gap-2 rounded-panel border border-line bg-card p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate font-semibold">{r.events?.title ?? "Deleted event"}</p>
+                  <p className="text-sm text-graphite">
+                    {r.kind === "seats" ? `${r.extra_guests} extra seats` : `${planInfo(r.plan ?? "free").name} plan`} ·{" "}
+                    {formatDateTime(r.paid_at ?? r.created_at)}
+                  </p>
+                </div>
+                <span className="shrink-0 text-right numeric">
+                  <span className={cx("font-semibold", r.status === "refunded" && "text-graphite line-through")}>
+                    {formatPrice(r.amount_cents)}
+                  </span>
+                  {r.status === "refunded" && <span className="block text-xs text-graphite">Refunded</span>}
+                </span>
+              </div>
+              {docs && (
+                <span className="flex gap-4 text-sm font-semibold">
+                  <a href={`/api/billing/${r.id}/invoice`} target="_blank" rel="noopener" className="text-cobalt">
+                    Invoice
+                  </a>
+                  <a href={`/api/billing/${r.id}/pdf`} className="text-cobalt">
+                    PDF
+                  </a>
+                  <a href={`/api/billing/${r.id}/receipt`} target="_blank" rel="noopener" className="text-cobalt">
+                    Receipt
+                  </a>
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+        <Panel className="hidden p-0 sm:block">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-left text-[15px]">
               <thead className="border-b border-line text-sm text-graphite">
@@ -133,6 +169,7 @@ export default async function BillingPage() {
             </table>
           </div>
         </Panel>
+        </>
       )}
 
       <Panel>

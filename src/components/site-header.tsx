@@ -13,7 +13,7 @@ export async function SiteHeader() {
         <Link href="/#how-it-works" className="hidden px-2 text-[15px] font-semibold text-graphite hover:text-ink sm:inline">
           How it works
         </Link>
-        <Link href="/#pricing" className="px-2 text-[15px] font-semibold text-graphite hover:text-ink">
+        <Link href="/#pricing" className="hidden px-2 text-[15px] font-semibold text-graphite hover:text-ink sm:inline">
           Pricing
         </Link>
         {user ? (

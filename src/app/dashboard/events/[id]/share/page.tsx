@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { requireOwnedEvent } from "@/lib/server/organiser";
 import { guestUrl } from "@/lib/env";
+import { signOne } from "@/lib/server/media";
 import { formatEventDate } from "@/lib/format";
 import { LinkButton, Notice, Panel, buttonClass } from "@/components/ui";
 import { ShareTools } from "./share-tools";
@@ -51,6 +52,7 @@ export default async function SharePage({
           }
           shots={event.photos_per_guest}
           eventId={id}
+          logoUrl={event.addon_branding ? await signOne(event.brand_logo_path) : null}
         />
         <div className="flex flex-col gap-6">
           <Panel>

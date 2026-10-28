@@ -7,6 +7,7 @@ import { bonusPending, shotLimit } from "@/lib/rules";
 import { Countdown } from "@/components/countdown";
 import { GuestMessage, guestButton } from "@/components/guest/guest-shell";
 import { EmailCapture } from "@/components/guest/email-capture";
+import { SmsCapture } from "@/components/guest/sms-capture";
 import { AddToHomeHint } from "@/components/guest/add-to-home";
 
 export const metadata: Metadata = { title: "Roll finished", robots: { index: false } };
@@ -21,7 +22,7 @@ export default async function DonePage({ params }: PageProps<"/e/[code]/done">) 
   // Bonus shots unlocked since the guest finished: send them back to the camera.
   if (accepting && !guest.blocked && guest.photos_submitted < shotLimit(event)) {
     return (
-      <GuestMessage
+      <GuestMessage brand={ctx.brand}
         title="Bonus shots unlocked"
         action={
           <Link href={`/e/${code}/camera`} className={guestButton}>
@@ -55,7 +56,7 @@ export default async function DonePage({ params }: PageProps<"/e/[code]/done">) 
   }
 
   return (
-    <GuestMessage
+    <GuestMessage brand={ctx.brand}
       title="That's the roll"
       action={
         galleryHref && access.allowed ? (
@@ -82,6 +83,11 @@ export default async function DonePage({ params }: PageProps<"/e/[code]/done">) 
       {galleryHref && (
         <div className="mt-6">
           <AddToHomeHint />
+        </div>
+      )}
+      {event.addon_sms && event.gallery_visibility !== "private" && (
+        <div className="mt-6">
+          <SmsCapture code={code} alreadyOpen={access.allowed && (event.status === "ended" || event.reveal_mode !== "live")} />
         </div>
       )}
       {event.email_capture_enabled && event.gallery_visibility !== "private" && (

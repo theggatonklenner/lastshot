@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { requireOwnedEvent } from "@/lib/server/organiser";
 import { guestUrl } from "@/lib/env";
+import { signOne } from "@/lib/server/media";
 import { Slideshow } from "./slideshow";
 
 export const metadata: Metadata = {
@@ -21,6 +22,7 @@ export default async function SlideshowPage({
       title={event.title}
       guestUrl={guestUrl(event.code)}
       shots={event.photos_per_guest}
+      logoUrl={event.addon_branding ? await signOne(event.brand_logo_path) : null}
     />
   );
 }

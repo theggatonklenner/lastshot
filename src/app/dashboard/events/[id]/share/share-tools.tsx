@@ -17,12 +17,14 @@ export function ShareTools({
   dateLine,
   shots,
   eventId,
+  logoUrl,
 }: {
   url: string;
   title: string;
   dateLine: string;
   shots: number;
   eventId: string;
+  logoUrl?: string | null;
 }) {
   const [qr, setQr] = useState<string | null>(null);
   const canShare = useSyncExternalStore(
@@ -47,7 +49,13 @@ export function ShareTools({
     if (!qr) return;
     setBusy(true);
     try {
-      const bytes = await buildSign(design, { title, dateLine, shots, url, qrPng: qr });
+      const logoPng = logoUrl
+        ? await fetch(logoUrl)
+            .then((r) => (r.ok ? r.arrayBuffer() : null))
+            .then((b) => (b ? new Uint8Array(b) : null))
+            .catch(() => null)
+        : null;
+      const bytes = await buildSign(design, { title, dateLine, shots, url, qrPng: qr, logoPng });
       saveBlob(new Blob([bytes as BlobPart], { type: "application/pdf" }), `${slug(title)}-${design}.pdf`);
     } finally {
       setBusy(false);

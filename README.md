@@ -29,6 +29,8 @@ npm run dev
 | `EMAIL_FROM` | server only | Sender, e.g. `Lastshot <photos@yourdomain.com>`. The domain must be verified in Resend |
 | `EMAIL_REPLY_TO` | server only | Optional reply-to address |
 | `CRON_SECRET` | server only | Optional. Locks the email scheduler endpoint (see below) |
+| `CLICKSEND_USERNAME`, `CLICKSEND_API_KEY` | server only | ClickSend account for the SMS alerts add-on |
+| `SMS_FROM` | server only | Optional sender name or number for texts |
 | `STRIPE_SECRET_KEY` | server only | Stripe secret key. `sk_test_...` for testing, `sk_live_...` for real payments |
 | `STRIPE_WEBHOOK_SECRET` | server only | Signing secret of the Stripe webhook for `/api/stripe/webhook` |
 
@@ -56,6 +58,8 @@ Migrations live in `supabase/migrations` and have already been applied to the La
 8. `plans_payments_bonus`: plans and guest limits, Stripe payments, bonus shots
 9. `plans_small_tier`: the 50-guest Small plan, Free down to 10 guests
 10. `extra_seats`: extra seats bought on top of a plan
+11. `photo_watermarks`: marks photos that have watermarked copies
+12. `addons`: add-on flags and settings, add-on payments, 2-year retention, SMS sign-ups
 
 `supabase/tests/db_rules.sql`, `db_admin_emails.sql` and `db_team_reports_retention.sql` exercise the rules (limits, retries, lifecycle, cross-organiser isolation, anon lock-out, path scoping, blocking, closed events, rate limiting). Paste it into the SQL editor; it ends with `ALL TESTS PASSED` and rolls itself back.
 
@@ -148,6 +152,15 @@ Upgrading uses Stripe Checkout (`/dashboard/events/<id>/upgrade`). Organisers pa
 ### Extra seats
 
 On any plan except Unlimited, organisers can add 5 to 500 extra seats with a slider on the upgrade page. The more they add, the less each seat costs: $2 (5–45), $1.50 (50–145), $1 (150+); see `SEAT_TIERS` in `src/lib/plans.ts`. The server recalculates the price, so the slider can't be tampered with. Paid seats are added to `events.extra_guests` by `fulfil_payment()`, and `event_guest_limit()` (plan limit plus extra seats) is what `guest_join` checks.
+
+### Add-ons
+
+One-off extras per event, bought through Stripe from the plan page (`kind = 'addon'` payments; `fulfil_payment()` sets `events.addon_*`). Organisers can't set the flags themselves; admins can from the admin event page. Prices are in `addonPrice()` in `src/lib/plans.ts`.
+
+- **Custom photo frame** ($19): organisers set two lines of text and a colour (Settings > Add-ons). The guest's camera draws the border onto each shot (`drawFrame()` in `src/lib/client/develop.ts`), so it applies to photos taken after it's set up.
+- **Your branding** ($29): organisers upload a logo (`/api/events/<id>/logo`, re-encoded as PNG). Guest pages show it instead of the "Made with Lastshot" card, and the slideshow and printable signs use it.
+- **Keep photos for 2 years** ($19): `event_retention_until()` uses 730 days instead of 180. The old free "keep forever" switch is gone; `keep_photos` is admin-only.
+- **SMS alerts** ($9 to $59 by plan): guests leave a mobile number (`/api/e/<code>/sms`, `add_guest_phone()`), and when the gallery is ready they get one text with a private link, sent through ClickSend alongside the emails (`sendDueGallerySms()`). Texts are capped at the event's guest limit (1,000 on Unlimited). Text links work as gallery passes exactly like email links.
 
 ### Watermarks
 

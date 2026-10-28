@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { adminDeleteEvent, adminDeletePhotos, setEventPlan, suspendEvent, unsuspendEvent } from "@/app/admin/actions";
-import { PLANS } from "@/lib/plans";
+import { adminDeleteEvent, adminDeletePhotos, setEventAddons, setEventPlan, suspendEvent, unsuspendEvent } from "@/app/admin/actions";
+import { ADDONS, PLANS } from "@/lib/plans";
 import { Lightbox } from "@/components/lightbox";
-import { Button, EmptyState, Field, Input, Notice, Panel, Select, cx } from "@/components/ui";
+import { Button, EmptyState, Field, Input, Notice, Panel, Select, Toggle, cx } from "@/components/ui";
 import { formatDateTime } from "@/lib/format";
 
 export function AdminEventControls({
@@ -14,6 +14,7 @@ export function AdminEventControls({
   suspendedReason,
   plan,
   extraGuests,
+  addons,
 }: {
   eventId: string;
   code: string;
@@ -21,10 +22,12 @@ export function AdminEventControls({
   suspendedReason: string | null;
   plan: string;
   extraGuests: number;
+  addons: Record<"frame" | "branding" | "storage" | "sms", boolean>;
 }) {
   const [reason, setReason] = useState("");
   const [planChoice, setPlanChoice] = useState(plan);
   const [extra, setExtra] = useState(String(extraGuests));
+  const [flags, setFlags] = useState(addons);
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -63,6 +66,24 @@ export function AdminEventControls({
             Save plan
           </Button>
         </div>
+      </Panel>
+      <Panel>
+        <h2 className="mb-1 text-lg font-bold">Add-ons</h2>
+        <p className="mb-2 text-graphite">Turn add-ons on or off without payment.</p>
+        <div className="flex flex-col">
+          {ADDONS.map((a) => (
+            <Toggle key={a.id} checked={flags[a.id]} onChange={(v) => setFlags((f) => ({ ...f, [a.id]: v }))} label={a.name} />
+          ))}
+        </div>
+        <Button
+          variant="secondary"
+          className="mt-2"
+          pending={pending}
+          disabled={JSON.stringify(flags) === JSON.stringify(addons)}
+          onClick={() => run(() => setEventAddons(eventId, flags))}
+        >
+          Save add-ons
+        </Button>
       </Panel>
       <Panel>
         <h2 className="mb-1 text-lg font-bold">{suspendedAt ? "Suspended" : "Suspend event"}</h2>

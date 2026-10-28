@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Guest preview" };
 export default async function PreviewPage({ params }: PageProps<"/dashboard/events/[id]/preview">) {
   const { id } = await params;
   const { event } = await requireOwnedEvent(id);
-  const coverUrl = await signOne(event.cover_image_path);
+  const [coverUrl, logoUrl] = await Promise.all([signOne(event.cover_image_path), signOne(event.brand_logo_path)]);
   const q = new URLSearchParams({
     theme: event.theme,
     accent: event.accent_color,
@@ -31,6 +31,7 @@ export default async function PreviewPage({ params }: PageProps<"/dashboard/even
         <div className="max-h-[780px] overflow-y-auto">
           <GuestLanding
             event={event}
+            brand={event.addon_branding ? { logoUrl } : null}
             coverUrl={coverUrl}
             accepting
             galleryHref={null}

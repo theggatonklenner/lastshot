@@ -19,7 +19,7 @@ export default async function GalleryPage({ params }: PageProps<"/e/[code]/galle
   if (!access.allowed) {
     if (access.reason === "join_required") {
       return (
-        <GuestMessage
+        <GuestMessage brand={ctx.brand}
           title="Join to see the photos"
           action={
             <Link href={`/e/${code}`} className={guestButton}>
@@ -33,13 +33,13 @@ export default async function GalleryPage({ params }: PageProps<"/e/[code]/galle
     }
     if (access.reason === "private") {
       return (
-        <GuestMessage title="Private gallery">
+        <GuestMessage brand={ctx.brand} title="Private gallery">
           The organiser of {event.title} is keeping these photos private.
         </GuestMessage>
       );
     }
     return (
-      <GuestMessage
+      <GuestMessage brand={ctx.brand}
         title="Still developing"
         action={
           <Link href={`/e/${code}`} className={guestSecondary}>
@@ -65,7 +65,7 @@ export default async function GalleryPage({ params }: PageProps<"/e/[code]/galle
   const first = await loadGalleryPage(event, { sort: "newest", offset: 0, includeOriginals: downloads });
 
   return (
-    <GuestShell>
+    <GuestShell brand={ctx.brand}>
       <div className="flex flex-col gap-6 pt-10">
         <div className="flex flex-col gap-2">
           <Link href={`/e/${code}`} className="text-[15px] font-semibold text-cream-dim hover:text-cream">

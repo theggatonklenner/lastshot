@@ -22,6 +22,11 @@ export default async function CameraPage({ params }: PageProps<"/e/[code]/camera
       title={event.title}
       theme={resolveTheme(event.theme, event.accent_color)}
       dateStamp={event.date_stamp_enabled}
+      frame={
+        event.addon_frame && (event.frame_text || event.frame_subtext)
+          ? { text: event.frame_text, subtext: event.frame_subtext, color: event.frame_color }
+          : null
+      }
       limit={shotLimit(event)}
       initialUsed={guest.photos_submitted}
       allowLibrary={event.camera_roll_uploads_enabled}

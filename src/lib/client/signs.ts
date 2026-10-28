@@ -11,7 +11,31 @@ export const SIGN_DESIGNS: { id: SignDesign; name: string; description: string }
   { id: "cards", name: "Small cards", description: "Four cards per A4 page to cut out and scatter around." },
 ];
 
-export type SignInput = { title: string; dateLine: string; shots: number; url: string; qrPng: string };
+export type SignInput = {
+  title: string;
+  dateLine: string;
+  shots: number;
+  url: string;
+  qrPng: string;
+  /** Your branding add-on: PNG bytes of the organiser's logo, shown instead of "lastshot". */
+  logoPng?: Uint8Array | null;
+};
+
+type Brand = { logo: PDFImage | null };
+
+/** Draws the organiser's logo (fitted into a box, right-aligned) or the Lastshot wordmark. */
+function drawBrandMark(page: PDFPage, f: Fonts, brand: Brand, rightX: number, y: number, color: RGB) {
+  if (brand.logo) {
+    const maxW = 120;
+    const maxH = 30;
+    const scale = Math.min(maxW / brand.logo.width, maxH / brand.logo.height);
+    const w = brand.logo.width * scale;
+    const h = brand.logo.height * scale;
+    page.drawImage(brand.logo, { x: rightX - w, y: y - 6, width: w, height: h });
+    return;
+  }
+  page.drawText("lastshot", { x: rightX - f.bold.widthOfTextAtSize("lastshot", 14), y, size: 14, font: f.bold, color });
+}
 
 const A4: [number, number] = [595.28, 841.89];
 const INK = rgb(0.086, 0.09, 0.102);
@@ -84,7 +108,7 @@ function footerUrl(url: string) {
   return url.replace(/^https?:\/\//, "");
 }
 
-function drawPoster(page: PDFPage, f: Fonts, qr: PDFImage, s: SignInput) {
+function drawPoster(page: PDFPage, f: Fonts, qr: PDFImage, s: SignInput, brand: Brand) {
   const { width: W, height: H } = page.getSize();
   const p = painter(page, false);
   p.rect(0, H - 150, W, 150, COBALT);
@@ -104,10 +128,10 @@ function drawPoster(page: PDFPage, f: Fonts, qr: PDFImage, s: SignInput) {
   const steps = ["Open your phone camera and point it at the code", "Tap the link, then tap Start camera", "Make every shot count"];
   steps.forEach((line, i) => p.text(`${i + 1}.  ${line}`, 70, 150 - i * 24, 13, i === 2 ? f.bold : f.regular, INK));
   p.text(footerUrl(s.url), 48, 48, 10, f.regular, GREY);
-  p.text("lastshot", W - 48 - f.bold.widthOfTextAtSize("lastshot", 14), 46, 14, f.bold, COBALT);
+  drawBrandMark(page, f, brand, W - 48, 46, COBALT);
 }
 
-function drawNight(page: PDFPage, f: Fonts, qr: PDFImage, s: SignInput) {
+function drawNight(page: PDFPage, f: Fonts, qr: PDFImage, s: SignInput, brand: Brand) {
   const { width: W, height: H } = page.getSize();
   const p = painter(page, false);
   p.rect(0, 0, W, H, BODY);
@@ -132,7 +156,7 @@ function drawNight(page: PDFPage, f: Fonts, qr: PDFImage, s: SignInput) {
   p.image(qr, (W - size) / 2, 168, size, size);
   p.centered("No app needed. Your photos go to one shared roll.", W / 2, 112, 14, f.regular, CREAM);
   p.text(footerUrl(s.url), 48, 48, 10, f.regular, rgb(0.72, 0.7, 0.65));
-  p.text("lastshot", W - 48 - f.bold.widthOfTextAtSize("lastshot", 14), 46, 14, f.bold, FLASH);
+  drawBrandMark(page, f, brand, W - 48, 46, FLASH);
 }
 
 /** One half of a table tent, laid out in the bottom half of the page. */
@@ -207,12 +231,13 @@ function drawCards(page: PDFPage, f: Fonts, qr: PDFImage, s: SignInput) {
 export async function buildSign(design: SignDesign, s: SignInput): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   pdf.setTitle(`${pdfSafe(s.title)} camera sign`);
-  pdf.setCreator("Lastshot");
+  pdf.setCreator(s.logoPng ? "" : "Lastshot");
   const fonts = { bold: await pdf.embedFont(StandardFonts.HelveticaBold), regular: await pdf.embedFont(StandardFonts.Helvetica) };
   const qr = await pdf.embedPng(s.qrPng);
+  const brand: Brand = { logo: s.logoPng ? await pdf.embedPng(s.logoPng).catch(() => null) : null };
   const page = pdf.addPage(A4);
-  if (design === "poster") drawPoster(page, fonts, qr, s);
-  if (design === "night") drawNight(page, fonts, qr, s);
+  if (design === "poster") drawPoster(page, fonts, qr, s, brand);
+  if (design === "night") drawNight(page, fonts, qr, s, brand);
   if (design === "tent") drawTent(page, fonts, qr, s);
   if (design === "cards") drawCards(page, fonts, qr, s);
   return pdf.save();

@@ -7,6 +7,7 @@ import { guestToken, saveGuestToken } from "@/lib/client/upload-queue";
 import { guestButton, guestSecondary } from "@/components/guest/guest-shell";
 import { cx } from "@/components/ui";
 import { EMAIL_RE, EmailCapture, saveNotifyEmail } from "@/components/guest/email-capture";
+import { SmsCapture } from "@/components/guest/sms-capture";
 import { AddToHomeHint } from "@/components/guest/add-to-home";
 
 type Joined = { displayName: string | null; shotsUsed: number; shotsLimit: number } | null;
@@ -21,8 +22,10 @@ export function JoinPanel({
   preview,
   previewCameraHref,
   emailCapture,
+  smsCapture,
 }: {
   emailCapture?: boolean;
+  smsCapture?: boolean;
   code: string;
   limit: number;
   joined: Joined;
@@ -110,6 +113,7 @@ export function JoinPanel({
             See the gallery
           </Link>
         )}
+        {smsCapture && <SmsCapture code={code} />}
         {emailCapture && <EmailCapture code={code} />}
         <AddToHomeHint reason="so your camera and the gallery are one tap away" />
       </div>

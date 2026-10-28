@@ -1,6 +1,6 @@
 import { formatDateTime, formatEventDate } from "@/lib/format";
 import type { EventRecord } from "@/lib/database.types";
-import { GuestShell } from "./guest-shell";
+import { GuestShell, type GuestBrand } from "./guest-shell";
 import { JoinPanel } from "./join-panel";
 
 export function GuestLanding({
@@ -11,6 +11,7 @@ export function GuestLanding({
   galleryHref,
   preview,
   previewCameraHref,
+  brand,
 }: {
   event: EventRecord;
   coverUrl: string | null;
@@ -19,9 +20,10 @@ export function GuestLanding({
   galleryHref: string | null;
   preview?: boolean;
   previewCameraHref?: string;
+  brand?: GuestBrand;
 }) {
   return (
-    <GuestShell cover={coverUrl} accent={event.theme === "custom" ? event.accent_color : "#2546d8"}>
+    <GuestShell cover={coverUrl} accent={event.theme === "custom" ? event.accent_color : "#2546d8"} brand={brand}>
       {preview && (
         <p className="relative z-10 -mt-14 mb-6 inline-block rounded-full bg-flash px-3 py-1 text-sm font-bold text-body">
           Preview of the guest page
@@ -57,6 +59,7 @@ export function GuestLanding({
           preview={preview}
           previewCameraHref={previewCameraHref}
           emailCapture={event.email_capture_enabled && event.gallery_visibility !== "private"}
+          smsCapture={event.addon_sms && event.gallery_visibility !== "private"}
         />
       </div>
     </GuestShell>

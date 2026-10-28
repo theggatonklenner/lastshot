@@ -5,8 +5,8 @@ import { requireOwnedEvent } from "@/lib/server/organiser";
 import { admin } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/env";
 import { createCheckoutSession, stripeConfigured } from "@/lib/server/stripe";
-import { PLAN_ORDER, eventGuestLimit, planInfo, planRank, seatDiscount, seatPrice, upgradePrice, guestLimitText, validSeatCount } from "@/lib/plans";
-import type { Plan } from "@/lib/database.types";
+import { PLAN_ORDER, eventGuestLimit, planInfo, planRank, seatDiscount, seatPrice, upgradePrice, guestLimitText, validSeatCount, ADDONS, addonInfo, addonPrice, hasAddon } from "@/lib/plans";
+import type { Addon, Plan } from "@/lib/database.types";
 
 export type CheckoutState = { error?: string } | undefined;
 
@@ -92,6 +92,48 @@ export async function startSeatsCheckout(_prev: CheckoutState, form: FormData): 
     url = session.url;
   } catch (e) {
     console.error("seats checkout failed", e);
+    return { error: "Couldn't open the payment page. Try again in a minute." };
+  }
+  if (!url) return { error: "Couldn't open the payment page. Try again in a minute." };
+  redirect(url);
+}
+
+/** Starts a Stripe Checkout for one add-on. */
+export async function startAddonCheckout(_prev: CheckoutState, form: FormData): Promise<CheckoutState> {
+  const id = String(form.get("eventId") ?? "");
+  const addon = String(form.get("addon") ?? "") as Addon;
+  const { event, user } = await requireOwnedEvent(id);
+
+  if (!ADDONS.some((a) => a.id === addon)) return { error: "Choose an add-on." };
+  if (hasAddon(event, addon)) return { error: "This event already has that add-on." };
+  if (!stripeConfigured()) return { error: "Payments aren't set up yet. Try again soon." };
+  if (event.suspended_at) return { error: "This event is suspended, so it can't be changed." };
+
+  const amount = addonPrice(addon, event);
+  const info = addonInfo(addon);
+  const base = `${siteUrl()}/dashboard/events/${event.id}/upgrade`;
+  let url: string | null = null;
+  try {
+    const session = await createCheckoutSession({
+      amountCents: amount,
+      productName: `Lastshot ${info.name}: ${event.title}`.slice(0, 120),
+      description: info.blurb,
+      email: user.email!,
+      successUrl: `${base}?paid=addon&addon=${addon}&session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${base}?cancelled=1`,
+      metadata: { event_id: event.id, kind: "addon", addon, user_id: user.id },
+      idempotencyKey: `addon:${event.id}:${addon}:${user.id}:${Math.floor(Date.now() / 600_000)}`,
+    });
+    const { error } = await admin()
+      .from("payments")
+      .upsert(
+        { event_id: event.id, user_id: user.id, kind: "addon", addon, plan: null, extra_guests: 0, amount_cents: amount, stripe_session_id: session.id },
+        { onConflict: "stripe_session_id", ignoreDuplicates: true },
+      );
+    if (error) throw new Error(error.message);
+    url = session.url;
+  } catch (e) {
+    console.error("addon checkout failed", e);
     return { error: "Couldn't open the payment page. Try again in a minute." };
   }
   if (!url) return { error: "Couldn't open the payment page. Try again in a minute." };

@@ -34,11 +34,13 @@ export function Slideshow({
   title,
   guestUrl,
   shots,
+  logoUrl,
 }: {
   eventId: string;
   title: string;
   guestUrl: string;
   shots: number;
+  logoUrl?: string | null;
 }) {
   const [qr, setQr] = useState<string | null>(null);
   const [count, setCount] = useState<number | null>(null);
@@ -245,6 +247,10 @@ export function Slideshow({
       {empty && (
         <div className="absolute inset-0 grid place-items-center p-10">
           <div className="flex flex-col items-center gap-8 text-center">
+            {logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="" className="max-h-[12vh] max-w-[40vw] object-contain" />
+            )}
             <p className="display text-[clamp(40px,6vw,96px)] leading-none">
               {title}
             </p>
@@ -280,6 +286,10 @@ export function Slideshow({
               >
                 Just taken
               </span>
+            )}
+            {logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="" className="mb-3 max-h-[clamp(40px,6vh,72px)] max-w-[30vw] object-contain" />
             )}
             <p className="display truncate text-[clamp(28px,3.4vw,56px)] leading-none">
               {title}

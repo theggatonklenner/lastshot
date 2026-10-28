@@ -79,9 +79,27 @@ export async function processImage(input: Buffer, opts: { watermark?: boolean } 
   return { original, display, thumb, width: info.width, height: info.height, originalWm, displayWm };
 }
 
-export async function putObject(path: string, body: Buffer) {
+/** Validates a logo and re-encodes it as a PNG (keeps transparency, strips metadata). */
+export async function processLogo(input: Buffer): Promise<Buffer> {
+  let meta: Metadata;
+  try {
+    meta = await sharp(input, { limitInputPixels: 25_000_000, failOn: "error" }).metadata();
+  } catch {
+    throw new InvalidImageError("not_an_image");
+  }
+  if (!meta.format || !["png", "jpeg", "webp"].includes(meta.format) || !meta.width || !meta.height) {
+    throw new InvalidImageError("unsupported_format");
+  }
+  return sharp(input, { limitInputPixels: 25_000_000 })
+    .rotate()
+    .resize({ width: 800, height: 320, fit: "inside", withoutEnlargement: true })
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+}
+
+export async function putObject(path: string, body: Buffer, contentType = "image/jpeg") {
   const { error } = await admin().storage.from(MEDIA_BUCKET).upload(path, body, {
-    contentType: "image/jpeg",
+    contentType,
     upsert: true,
     cacheControl: "31536000",
   });

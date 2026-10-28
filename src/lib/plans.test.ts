@@ -81,3 +81,13 @@ describe("stripe webhook signature", () => {
     expect(verifyStripeSignature(payload, null, secret)).toBe(false);
   });
 });
+
+describe("add-ons", () => {
+  it("prices SMS by event size", async () => {
+    const { addonPrice } = await import("./plans");
+    expect(addonPrice("sms", { plan: "free" })).toBe(900);
+    expect(addonPrice("sms", { plan: "party" })).toBe(1500);
+    expect(addonPrice("sms", { plan: "unlimited" })).toBe(5900);
+    expect(addonPrice("frame", { plan: "big" })).toBe(1900);
+  });
+});

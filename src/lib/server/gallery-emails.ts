@@ -4,6 +4,7 @@ import { siteUrl } from "@/lib/env";
 import { createHmac } from "node:crypto";
 import { hashToken } from "@/lib/server/guest";
 import { emailConfigured, galleryReadyEmail, sendBatch } from "@/lib/server/email";
+import { galleryReadySms, sendSmsBatch, smsConfigured } from "@/lib/server/sms";
 
 /**
  * Each email's private link is derived from a server secret and the row id, so
@@ -16,13 +17,29 @@ function linkToken(rowId: string): string {
   return createHmac("sha256", secret).update(`gallery-link:${rowId}`).digest("base64url");
 }
 
-export type SendSummary = { claimed: number; sent: number; failed: number; skipped?: "not_configured" };
+export type SendSummary = {
+  claimed: number;
+  sent: number;
+  failed: number;
+  skipped?: "not_configured";
+  sms?: { claimed: number; sent: number; failed: number; skipped?: "not_configured" };
+};
 
 /**
  * Sends "photos are ready" emails that are due. Safe to call often and from
  * several places at once: Postgres hands each email to exactly one caller.
  */
 export async function sendDueGalleryEmails(opts: { eventId?: string; limit?: number } = {}): Promise<SendSummary> {
+  // Texts go out alongside emails (SMS alerts add-on).
+  const sms = await sendDueGallerySms(opts).catch((e) => {
+    console.error("gallery sms failed", e);
+    return { claimed: 0, sent: 0, failed: 0 };
+  });
+  const email = await sendDueEmailsOnly(opts);
+  return { ...email, sms };
+}
+
+async function sendDueEmailsOnly(opts: { eventId?: string; limit?: number }): Promise<SendSummary> {
   if (!emailConfigured()) return { claimed: 0, sent: 0, failed: 0, skipped: "not_configured" };
 
   const db = admin();
@@ -96,4 +113,46 @@ export async function sendDueGalleryEmails(opts: { eventId?: string; limit?: num
   }
 
   return { claimed: rows.length, sent, failed };
+}
+
+/** Sends "photos are ready" texts that are due. Same claiming rules as emails. */
+export async function sendDueGallerySms(opts: { eventId?: string; limit?: number } = {}) {
+  if (!smsConfigured()) return { claimed: 0, sent: 0, failed: 0, skipped: "not_configured" as const };
+  const db = admin();
+  const { data: claimed, error } = await db.rpc("claim_gallery_sms", {
+    p_event_id: opts.eventId ?? null,
+    p_limit: opts.limit ?? 200,
+  });
+  if (error) throw new Error(`sms claim failed: ${error.message}`);
+  const rows = claimed ?? [];
+  if (rows.length === 0) return { claimed: 0, sent: 0, failed: 0 };
+
+  const base = siteUrl();
+  const batch = rows.map((r) => {
+    const token = linkToken(r.id);
+    return { row: r, hash: hashToken(token), body: galleryReadySms(r.event_title, `${base}/e/${r.event_code}/g/${token}`) };
+  });
+  for (const b of batch) {
+    await db.from("guest_sms").update({ view_token_hash: b.hash }).eq("id", b.row.id);
+  }
+
+  const result = await sendSmsBatch(batch.map((b) => ({ to: b.row.phone, body: b.body, ref: b.row.id })));
+  if (!result.ok) {
+    await db
+      .from("guest_sms")
+      .update({ sending_started_at: null, last_error: result.error.slice(0, 500) })
+      .in("id", rows.map((r) => r.id));
+    return { claimed: rows.length, sent: 0, failed: rows.length };
+  }
+  const sentIds = rows.filter((r) => result.accepted.has(r.id)).map((r) => r.id);
+  if (sentIds.length) {
+    await db.from("guest_sms").update({ sent_at: new Date().toISOString(), sending_started_at: null, last_error: null }).in("id", sentIds);
+  }
+  for (const r of rows.filter((x) => !result.accepted.has(x.id))) {
+    await db
+      .from("guest_sms")
+      .update({ sending_started_at: null, last_error: (result.errors.get(r.id) ?? "Not accepted").slice(0, 500) })
+      .eq("id", r.id);
+  }
+  return { claimed: rows.length, sent: sentIds.length, failed: rows.length - sentIds.length };
 }

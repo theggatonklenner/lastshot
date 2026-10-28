@@ -94,6 +94,7 @@ export default async function EventOverview({ params, searchParams }: PageProps<
                   keep={event.keep_photos}
                   deleteAfter={retentionUntil(event)?.toISOString() ?? null}
                   ended
+                  extended={event.addon_storage}
                 />
               </div>
             )}

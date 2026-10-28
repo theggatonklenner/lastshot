@@ -6,6 +6,7 @@ import { Panel } from "@/components/ui";
 import { LifecycleActions } from "../lifecycle";
 import { KeepPhotos } from "../keep-photos";
 import { SettingsForm } from "./settings-form";
+import { AddonSettings } from "./addon-settings";
 import { TeamPanel, type TeamInvite, type TeamPerson } from "./team";
 import { admin } from "@/lib/supabase/admin";
 
@@ -17,8 +18,9 @@ export default async function SettingsPage({ params }: PageProps<"/dashboard/eve
   // The viewer is an organiser of this event (checked above), so read the team with the service client
   // (profiles are otherwise private to each user).
   const db = admin();
-  const [coverUrl, { data: members }, { data: invites }] = await Promise.all([
+  const [coverUrl, logoUrl, { data: members }, { data: invites }] = await Promise.all([
     signOne(event.cover_image_path),
+    signOne(event.brand_logo_path),
     db.from("event_members").select("user_id").eq("event_id", id),
     db.from("event_invites").select("id, email, expires_at").eq("event_id", id).is("accepted_at", null),
   ]);
@@ -53,9 +55,18 @@ export default async function SettingsPage({ params }: PageProps<"/dashboard/eve
             keep={event.keep_photos}
             deleteAfter={retentionUntil(event)?.toISOString() ?? null}
             ended={event.status === "ended" || event.status === "archived"}
+            extended={event.addon_storage}
           />
         </div>
       </Panel>
+      <AddonSettings
+        eventId={event.id}
+        hasFrame={event.addon_frame}
+        hasBranding={event.addon_branding}
+        frame={{ text: event.frame_text, subtext: event.frame_subtext, color: event.frame_color }}
+        logoUrl={logoUrl}
+        coverUrl={coverUrl}
+      />
       <TeamPanel eventId={event.id} isOwner={isOwner} people={people} invites={pendingInvites} />
       <SettingsForm event={event} coverUrl={coverUrl} isOwner={isOwner} />
     </div>

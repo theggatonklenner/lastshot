@@ -1,4 +1,4 @@
-import type { Plan } from "@/lib/database.types";
+import type { Addon, Plan } from "@/lib/database.types";
 
 export type PlanInfo = {
   id: Plan;
@@ -91,4 +91,55 @@ export function planSaving(plan: Plan): { cents: number; percent: number } | nul
   const price = planInfo(plan).price;
   if (value === null || price === 0 || value <= price) return null;
   return { cents: value - price, percent: Math.round((1 - price / value) * 100) };
+}
+
+export type AddonInfo = { id: Addon; name: string; blurb: string; detail: string };
+
+export const ADDONS: AddonInfo[] = [
+  {
+    id: "frame",
+    name: "Custom photo frame",
+    blurb: "Your names and date on every photo, like a printed border.",
+    detail: "Applies to photos taken after you add it.",
+  },
+  {
+    id: "branding",
+    name: "Your branding",
+    blurb: "Your logo on the guest pages, signs and slideshow instead of Lastshot's.",
+    detail: "Great for businesses, schools and venues.",
+  },
+  {
+    id: "storage",
+    name: "Keep photos for 2 years",
+    blurb: "Photos stay for 2 years after the event instead of 180 days.",
+    detail: "You'll still get a reminder before they're deleted.",
+  },
+  {
+    id: "sms",
+    name: "SMS alerts",
+    blurb: "Guests can leave a mobile number and get a text when the photos are ready.",
+    detail: "Price depends on your plan, because bigger events send more texts.",
+  },
+];
+
+/** Add-on price in AUD cents. SMS scales with the event's size. */
+export function addonPrice(addon: Addon, e: { plan: Plan }): number {
+  switch (addon) {
+    case "frame":
+      return 1900;
+    case "branding":
+      return 2900;
+    case "storage":
+      return 1900;
+    case "sms":
+      return e.plan === "unlimited" ? 5900 : e.plan === "big" ? 2900 : e.plan === "party" ? 1500 : 900;
+  }
+}
+
+export function addonInfo(addon: Addon) {
+  return ADDONS.find((a) => a.id === addon)!;
+}
+
+export function hasAddon(e: { addon_frame: boolean; addon_branding: boolean; addon_storage: boolean; addon_sms: boolean }, addon: Addon) {
+  return { frame: e.addon_frame, branding: e.addon_branding, storage: e.addon_storage, sms: e.addon_sms }[addon];
 }

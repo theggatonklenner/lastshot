@@ -50,6 +50,30 @@ type EventRow = {
   bonus_shots: number;
   bonus_at: string | null;
   extra_guests: number;
+  addon_frame: boolean;
+  addon_branding: boolean;
+  addon_storage: boolean;
+  addon_sms: boolean;
+  frame_text: string | null;
+  frame_subtext: string | null;
+  frame_color: "white" | "cream" | "black";
+  brand_logo_path: string | null;
+};
+
+export type Addon = "frame" | "branding" | "storage" | "sms";
+
+type SmsRow = {
+  id: string;
+  event_id: string;
+  guest_id: string | null;
+  phone: string;
+  created_at: string;
+  unsubscribed_at: string | null;
+  sending_started_at: string | null;
+  sent_at: string | null;
+  attempts: number;
+  last_error: string | null;
+  view_token_hash: string | null;
 };
 
 export type Plan = "free" | "small" | "party" | "big" | "unlimited";
@@ -58,7 +82,8 @@ type PaymentRow = {
   id: string;
   event_id: string | null;
   user_id: string | null;
-  kind: "plan" | "seats";
+  kind: "plan" | "seats" | "addon";
+  addon: Addon | null;
   plan: Exclude<Plan, "free"> | null;
   extra_guests: number;
   amount_cents: number;
@@ -232,6 +257,12 @@ export type Database = {
         Update: Partialize<ErrorRow>;
         Relationships: [];
       };
+      guest_sms: {
+        Row: SmsRow;
+        Insert: Partialize<SmsRow> & { event_id: string; phone: string };
+        Update: Partialize<SmsRow>;
+        Relationships: [];
+      };
       payments: {
         Row: PaymentRow;
         Insert: Partialize<PaymentRow> & { amount_cents: number; stripe_session_id: string };
@@ -303,6 +334,11 @@ export type Database = {
       };
       admin_overview: { Args: never; Returns: Json };
       admin_revenue: { Args: never; Returns: Json };
+      add_guest_phone: { Args: { p_guest_id: string; p_phone: string }; Returns: SmsRow };
+      claim_gallery_sms: {
+        Args: { p_event_id: string | null; p_limit: number };
+        Returns: { id: string; event_id: string; phone: string; event_code: string; event_title: string }[];
+      };
       fulfil_payment: {
         Args: { p_session_id: string; p_payment_intent: string | null; p_email: string | null };
         Returns: PaymentRow;
@@ -375,3 +411,4 @@ export type ReportRecord = ReportRow;
 export type ErrorRecord = ErrorRow;
 export type { EventStatus, EventType, GalleryVisibility, ModerationStatus, RevealMode };
 export type PaymentRecord = PaymentRow;
+export type SmsRecord = SmsRow;

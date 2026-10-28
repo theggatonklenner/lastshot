@@ -70,13 +70,17 @@ export async function hasViewPass(event: EventRecord, code: string): Promise<boo
   const jar = await cookies();
   const token = jar.get(viewPassCookieName(code))?.value;
   if (!token || !TOKEN_RE.test(token)) return false;
-  const { data } = await admin()
-    .from("guest_emails")
-    .select("id")
-    .eq("event_id", event.id)
-    .eq("view_token_hash", hashToken(token))
-    .maybeSingle();
-  return !!data;
+  return isValidViewToken(event.id, token);
+}
+
+/** True if the token is the private link from an email or text for this event. */
+export async function isValidViewToken(eventId: string, token: string): Promise<boolean> {
+  const hash = hashToken(token);
+  const [{ data: e }, { data: s }] = await Promise.all([
+    admin().from("guest_emails").select("id").eq("event_id", eventId).eq("view_token_hash", hash).maybeSingle(),
+    admin().from("guest_sms").select("id").eq("event_id", eventId).eq("view_token_hash", hash).maybeSingle(),
+  ]);
+  return !!e || !!s;
 }
 
 export async function getEventByCode(code: string): Promise<EventRecord | null> {

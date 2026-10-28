@@ -202,3 +202,23 @@ export async function setEventPlan(eventId: string, plan: string, extraGuests: n
     return fail(e);
   }
 }
+
+const AddonFlags = z.object({ frame: z.boolean(), branding: z.boolean(), storage: z.boolean(), sms: z.boolean() });
+
+/** Turns add-ons on or off for an event without payment. */
+export async function setEventAddons(eventId: string, flags: unknown): Promise<Result> {
+  try {
+    await assertAdmin();
+    uuid.parse(eventId);
+    const f = AddonFlags.parse(flags);
+    const { error } = await admin()
+      .from("events")
+      .update({ addon_frame: f.frame, addon_branding: f.branding, addon_storage: f.storage, addon_sms: f.sms })
+      .eq("id", eventId);
+    if (error) throw new Error(error.message);
+    revalidatePath("/admin", "layout");
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}

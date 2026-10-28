@@ -35,12 +35,12 @@ async function run(req: NextRequest) {
       const mail = organiserNoticeEmail({
         heading: `Photos from ${e.title} will be deleted on ${dateFmt.format(new Date(e.delete_after))}`,
         lines: [
-          "Lastshot keeps photos for 180 days after an event ends, then deletes them to keep everyone's photos private.",
-          "Download anything you want to keep, or choose to keep the photos for longer in your event settings.",
+          "Lastshot deletes photos after an event to keep everyone's photos private.",
+          "Download anything you want to keep, or add \"Keep photos for 2 years\" from the event's plan page.",
         ],
         eyebrow: "Two weeks left",
         buttonLabel: "Open the event",
-        buttonUrl: `${siteUrl()}/dashboard/events/${e.id}/settings`,
+        buttonUrl: `${siteUrl()}/dashboard/events/${e.id}/upgrade#addons`,
       });
       const res = await sendBatch([{ to, subject: mail.subject, html: mail.html, text: mail.text }], `retention:${e.id}`);
       if (res.ok) {

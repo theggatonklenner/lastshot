@@ -63,10 +63,11 @@ export function readyForEmail(
 }
 
 export const RETENTION_DAYS = 180;
+export const EXTENDED_RETENTION_DAYS = 730;
 
 /** Mirrors SQL event_retention_until(): when photos will be deleted, or null if kept. */
 export function retentionUntil(
-  e: Pick<EventRecord, "keep_photos" | "ended_at" | "event_date" | "created_at">,
+  e: Pick<EventRecord, "keep_photos" | "ended_at" | "event_date" | "created_at"> & { addon_storage?: boolean },
 ): Date | null {
   if (e.keep_photos) return null;
   const base = e.ended_at
@@ -74,7 +75,8 @@ export function retentionUntil(
     : e.event_date
       ? new Date(`${e.event_date}T00:00:00Z`).getTime() + 86_400_000
       : new Date(e.created_at);
-  return new Date(new Date(base).getTime() + RETENTION_DAYS * 86_400_000);
+  const days = e.addon_storage ? EXTENDED_RETENTION_DAYS : RETENTION_DAYS;
+  return new Date(new Date(base).getTime() + days * 86_400_000);
 }
 
 export const EVENT_TYPES: { value: EventType; label: string }[] = [

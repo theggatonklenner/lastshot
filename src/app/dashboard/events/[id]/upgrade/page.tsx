@@ -3,11 +3,14 @@ import type { Metadata } from "next";
 import { requireOwnedEvent } from "@/lib/server/organiser";
 import { stripeConfigured, stripeTestMode } from "@/lib/server/stripe";
 import { confirmSession } from "@/lib/server/payments";
-import { PLANS, eventGuestLimit, formatPrice, planInfo, planRank, upgradePrice } from "@/lib/plans";
+import { ADDONS, PLANS, addonInfo, addonPrice, eventGuestLimit, formatPrice, hasAddon, planInfo, planRank, upgradePrice } from "@/lib/plans";
+import { retentionUntil } from "@/lib/rules";
+import type { Addon } from "@/lib/database.types";
 import { formatDateTime } from "@/lib/format";
 import { Notice, Panel, cx } from "@/components/ui";
 import { PlanButton } from "./plan-button";
 import { SeatsSlider } from "./seats-slider";
+import { AddonButton } from "./addon-button";
 import { PlanPrice } from "@/components/plan-price";
 
 export const metadata: Metadata = { title: "Plan" };
@@ -35,7 +38,7 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
     supabase.rpc("event_stats", { p_event_ids: [id] }),
     supabase
       .from("payments")
-      .select("id, kind, plan, extra_guests, amount_cents, status, paid_at, created_at")
+      .select("id, kind, plan, addon, extra_guests, amount_cents, status, paid_at, created_at")
       .eq("event_id", id)
       .eq("status", "paid")
       .order("paid_at", { ascending: false }),
@@ -51,6 +54,8 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
         <Notice tone="success">
           {sp.paid === "seats"
             ? `Payment received. Up to ${limit} guests can now join. A receipt is on its way to your email.`
+            : sp.paid === "addon" && typeof sp.addon === "string" && ADDONS.some((a) => a.id === sp.addon)
+            ? `Payment received. ${addonInfo(sp.addon as Addon).name} is now on for this event. A receipt is on its way to your email.`
             : `Payment received. This event is now on the ${current.name} plan. A receipt is on its way to your email.`}
         </Notice>
       )}
@@ -141,6 +146,55 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
         </Panel>
       )}
 
+      <section className="flex flex-col gap-4" id="addons">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-xl font-bold">Add-ons</h2>
+          <p className="text-graphite">One-off extras for this event. They work on any plan.</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {ADDONS.map((a) => {
+            const owned = hasAddon(event, a.id);
+            const keepUntil = a.id === "storage" ? retentionUntil(event) : null;
+            return (
+              <Panel key={a.id} className={cx("flex flex-col gap-3", owned && "ring-2 ring-ok")}>
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="text-lg font-bold">{a.name}</h3>
+                  {owned ? (
+                    <span className="shrink-0 rounded-full bg-ok px-2.5 py-0.5 text-xs font-bold text-white">Added</span>
+                  ) : (
+                    <span className="display shrink-0 text-2xl numeric">{formatPrice(addonPrice(a.id, event))}</span>
+                  )}
+                </div>
+                <p className="text-graphite">{a.blurb}</p>
+                <p className="text-sm text-graphite">{a.detail}</p>
+                <div className="mt-auto pt-1">
+                  {owned ? (
+                    a.id === "frame" || a.id === "branding" ? (
+                      <Link href={`/dashboard/events/${event.id}/settings#addons`} className="font-semibold text-cobalt hover:underline">
+                        {a.id === "frame" ? "Set up the frame" : "Upload your logo"}
+                      </Link>
+                    ) : a.id === "storage" ? (
+                      <p className="text-sm font-semibold text-ok">
+                        {keepUntil ? `Photos kept until ${formatDateTime(keepUntil.toISOString())}.` : "Photos kept for 2 years after the event."}
+                      </p>
+                    ) : (
+                      <p className="text-sm font-semibold text-ok">Guests can now leave a mobile number for a text.</p>
+                    )
+                  ) : (
+                    <AddonButton
+                      eventId={event.id}
+                      addon={a.id}
+                      label={`Add for ${formatPrice(addonPrice(a.id, event))}`}
+                      disabled={!ready || !!event.suspended_at}
+                    />
+                  )}
+                </div>
+              </Panel>
+            );
+          })}
+        </div>
+      </section>
+
       {!!payments?.length && (
         <Panel>
           <h2 className="mb-3 text-lg font-bold">Payments</h2>
@@ -148,7 +202,11 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
             {payments.map((p) => (
               <li key={p.id} className="flex justify-between gap-4 py-2.5 text-[15px]">
                 <span>
-                  {p.kind === "seats" ? `${p.extra_guests} extra seats` : `${planInfo(p.plan ?? "free").name} plan`}
+                  {p.kind === "seats"
+                    ? `${p.extra_guests} extra seats`
+                    : p.kind === "addon" && p.addon
+                      ? addonInfo(p.addon).name
+                      : `${planInfo(p.plan ?? "free").name} plan`}
                   <span className="block text-sm text-graphite">{formatDateTime(p.paid_at ?? p.created_at)}</span>
                 </span>
                 <span className="font-semibold numeric">{formatPrice(p.amount_cents)}</span>

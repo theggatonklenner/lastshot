@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CameraTheme } from "@/lib/themes";
-import { develop } from "@/lib/client/develop";
+import { develop, type PhotoFrame } from "@/lib/client/develop";
 import { decodeFile } from "@/lib/client/image";
 import { useUploadQueue } from "@/lib/client/upload-queue";
 import { counterText } from "@/lib/rules";
@@ -18,6 +18,7 @@ export type CameraProps = {
   title: string;
   theme: CameraTheme;
   dateStamp: boolean;
+  frame?: PhotoFrame | null;
   limit: number;
   initialUsed: number;
   allowLibrary: boolean;
@@ -27,7 +28,7 @@ export type CameraProps = {
 };
 
 export function Camera(props: CameraProps) {
-  const { code, title, theme, dateStamp, limit, initialUsed, allowLibrary, demo, exitHref, doneHref } = props;
+  const { code, title, theme, dateStamp, frame, limit, initialUsed, allowLibrary, demo, exitHref, doneHref } = props;
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -119,7 +120,7 @@ export function Camera(props: CameraProps) {
       // Let the flash paint before the heavy pixel work.
       await new Promise((r) => requestAnimationFrame(() => r(null)));
       const aspect = v.clientWidth && v.clientHeight ? v.clientWidth / v.clientHeight : undefined;
-      const blob = await develop(v, { theme, dateStamp, mirror: facing === "user", aspect });
+      const blob = await develop(v, { theme, dateStamp, frame, mirror: facing === "user", aspect });
       if (demo) setDemoShots((s) => [...s, URL.createObjectURL(blob)]);
       await queue.enqueue(blob, "camera");
     } catch (e) {
@@ -135,7 +136,7 @@ export function Camera(props: CameraProps) {
     setLocalError(null);
     try {
       const img = await decodeFile(file);
-      const blob = await develop(img, { theme, dateStamp, when: new Date(file.lastModified || Date.now()) });
+      const blob = await develop(img, { theme, dateStamp, frame, when: new Date(file.lastModified || Date.now()) });
       if (demo) setDemoShots((s) => [...s, URL.createObjectURL(blob)]);
       await queue.enqueue(blob, source);
     } catch {

@@ -26,5 +26,6 @@ export async function loadGuestContext(code: string) {
     access,
     galleryHref: access.allowed || galleryVisibleLater ? `/e/${code}/gallery` : null,
     coverUrl: await signOne(event.cover_image_path),
+    brand: event.addon_branding ? { logoUrl: await signOne(event.brand_logo_path) } : null,
   };
 }

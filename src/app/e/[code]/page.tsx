@@ -23,7 +23,7 @@ export default async function GuestEventPage({ params }: PageProps<"/e/[code]">)
 
   if (event.suspended_at && !isOwner) {
     return (
-      <GuestMessage title="Event unavailable">
+      <GuestMessage brand={ctx.brand} title="Event unavailable">
         This event isn&apos;t available right now. If you&apos;re a guest, check with the organiser.
       </GuestMessage>
     );
@@ -31,7 +31,7 @@ export default async function GuestEventPage({ params }: PageProps<"/e/[code]">)
 
   if (guest?.blocked) {
     return (
-      <GuestMessage title="Camera turned off">
+      <GuestMessage brand={ctx.brand} title="Camera turned off">
         The organiser has turned off the camera on this phone. Ask them if you think this is a mistake.
       </GuestMessage>
     );
@@ -39,7 +39,7 @@ export default async function GuestEventPage({ params }: PageProps<"/e/[code]">)
 
   if (event.status === "draft" && isOwner) {
     return (
-      <GuestMessage
+      <GuestMessage brand={ctx.brand}
         title="Not published yet"
         action={
           <Link href={`/dashboard/events/${event.id}/preview`} className={guestButton}>
@@ -54,7 +54,7 @@ export default async function GuestEventPage({ params }: PageProps<"/e/[code]">)
 
   if (event.status === "ended" || event.status === "archived") {
     return (
-      <GuestMessage
+      <GuestMessage brand={ctx.brand}
         title="That's a wrap"
         action={
           <div className="flex w-full flex-col gap-3">
@@ -81,6 +81,7 @@ export default async function GuestEventPage({ params }: PageProps<"/e/[code]">)
       coverUrl={coverUrl}
       accepting={accepting}
       galleryHref={galleryHref}
+      brand={ctx.brand}
       joined={
         guest
           ? { displayName: guest.display_name, shotsUsed: guest.photos_submitted, shotsLimit: shotLimit(event) }

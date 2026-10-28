@@ -106,8 +106,68 @@ function drawStamp(ctx: CanvasRenderingContext2D, w: number, h: number, when: Da
   ctx.restore();
 }
 
+export type PhotoFrame = { text: string | null; subtext: string | null; color: "white" | "cream" | "black" };
+
+const FRAME_COLORS = {
+  white: { bg: "#fbfaf7", ink: "#16171a", sub: "#565962" },
+  cream: { bg: "#f1ecdf", ink: "#16171a", sub: "#5c5a52" },
+  black: { bg: "#16171a", ink: "#f1ecdf", sub: "#b9b4a7" },
+};
+
+/** Shrinks text until it fits the width. */
+function fitFont(ctx: CanvasRenderingContext2D, text: string, weight: number, start: number, maxWidth: number) {
+  let size = start;
+  do {
+    ctx.font = `${weight} ${size}px "Archivo Variable", system-ui, sans-serif`;
+    if (ctx.measureText(text).width <= maxWidth) break;
+    size *= 0.92;
+  } while (size > 8);
+  return size;
+}
+
+/** Puts the photo in a printed-style border with the organiser's text underneath. */
+export function drawFrame(photo: HTMLCanvasElement, frame: PhotoFrame) {
+  const w = photo.width;
+  const h = photo.height;
+  const unit = Math.min(w, h);
+  const border = Math.round(unit * 0.045);
+  const band = Math.round(unit * (frame.text && frame.subtext ? 0.2 : 0.15));
+  const out = document.createElement("canvas");
+  out.width = w + border * 2;
+  out.height = h + border + band;
+  const ctx = out.getContext("2d")!;
+  const c = FRAME_COLORS[frame.color] ?? FRAME_COLORS.white;
+  ctx.fillStyle = c.bg;
+  ctx.fillRect(0, 0, out.width, out.height);
+  ctx.drawImage(photo, border, border);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const cx = out.width / 2;
+  const top = h + border;
+  const maxText = out.width - border * 4;
+  if (frame.text && frame.subtext) {
+    const s1 = fitFont(ctx, frame.text, 800, band * 0.3, maxText);
+    ctx.fillStyle = c.ink;
+    ctx.font = `800 ${s1}px "Archivo Variable", system-ui, sans-serif`;
+    ctx.fillText(frame.text, cx, top + band * 0.42);
+    const s2 = fitFont(ctx, frame.subtext, 600, band * 0.19, maxText);
+    ctx.fillStyle = c.sub;
+    ctx.font = `600 ${s2}px "Archivo Variable", system-ui, sans-serif`;
+    ctx.fillText(frame.subtext, cx, top + band * 0.72);
+  } else {
+    const t = frame.text || frame.subtext || "";
+    const s = fitFont(ctx, t, 800, band * 0.36, maxText);
+    ctx.fillStyle = c.ink;
+    ctx.font = `800 ${s}px "Archivo Variable", system-ui, sans-serif`;
+    ctx.fillText(t, cx, top + band * 0.5);
+  }
+  return out;
+}
+
 export type DevelopOptions = {
   theme: CameraTheme;
+  /** Custom photo frame add-on. */
+  frame?: PhotoFrame | null;
   dateStamp: boolean;
   mirror?: boolean;
   when?: Date;
@@ -148,7 +208,16 @@ export async function develop(src: Source, opts: DevelopOptions): Promise<Blob> 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     applyLook(ctx, w, h, opts.theme);
     if (opts.dateStamp) drawStamp(ctx, w, h, opts.when ?? new Date());
-    const blob = await canvasToJpeg(canvas, 0.84);
+    let finalCanvas = canvas;
+    if (opts.frame && (opts.frame.text || opts.frame.subtext)) {
+      try {
+        await document.fonts?.load('800 40px "Archivo Variable"');
+      } catch {
+        /* fall back to the system font */
+      }
+      finalCanvas = drawFrame(canvas, opts.frame);
+    }
+    const blob = await canvasToJpeg(finalCanvas, 0.84);
     if (blob.size <= MAX_BYTES) return blob;
     side = Math.round(side * 0.75);
   }

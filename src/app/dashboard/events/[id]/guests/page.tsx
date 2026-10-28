@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireOwnedEvent } from "@/lib/server/organiser";
 import { emailConfigured } from "@/lib/server/email";
+import { smsConfigured } from "@/lib/server/sms";
+import { formatPhone } from "@/lib/phone";
 import { formatDateTime, timeAgo } from "@/lib/format";
 import { readyForEmail, remainingShots, shotLimit } from "@/lib/rules";
 import { EmptyState } from "@/components/ui";
@@ -14,10 +16,11 @@ export default async function GuestsPage({ params }: PageProps<"/dashboard/event
   const { id } = await params;
   const { supabase, event } = await requireOwnedEvent(id);
   const limit = shotLimit(event);
-  const [{ data: guests }, { data: photos }, { data: emails }] = await Promise.all([
+  const [{ data: guests }, { data: photos }, { data: emails }, { data: texts }] = await Promise.all([
     supabase.from("event_guests").select("*").eq("event_id", id).order("created_at"),
     supabase.from("photos").select("guest_id").eq("event_id", id).eq("upload_status", "complete"),
     supabase.from("guest_emails").select("*").eq("event_id", id).order("created_at"),
+    supabase.from("guest_sms").select("phone, sent_at, attempts, last_error").eq("event_id", id).order("created_at"),
   ]);
 
   const kept = new Map<string, number>();
@@ -140,6 +143,28 @@ export default async function GuestsPage({ params }: PageProps<"/dashboard/event
         captureOn={event.email_capture_enabled && event.gallery_visibility !== "private"}
         readyHint={readyHint}
       />
+
+      {event.addon_sms && (
+        <section className="rounded-panel border border-line bg-card p-5">
+          <h2 className="text-lg font-bold">Text alerts</h2>
+          <p className="mt-1 text-graphite">
+            {(texts ?? []).length === 0
+              ? "No one has asked for a text yet. Guests see the option on the event page and when their roll is finished."
+              : `${(texts ?? []).length} ${(texts ?? []).length === 1 ? "number" : "numbers"}, ${(texts ?? []).filter((t) => t.sent_at).length} texted so far. Each gets one text with a private gallery link when the photos are ready.`}
+          </p>
+          {!smsConfigured() && <p className="mt-2 text-sm text-signal">Texting isn&apos;t switched on yet, so texts will wait until it is.</p>}
+          {(texts ?? []).length > 0 && (
+            <ul className="mt-3 divide-y divide-line text-[15px]">
+              {(texts ?? []).map((t) => (
+                <li key={t.phone} className="flex justify-between gap-3 py-2">
+                  <span className="numeric">{formatPhone(t.phone)}</span>
+                  <span className="text-sm text-graphite">{t.sent_at ? "Texted" : t.attempts >= 5 ? "Failed" : "Waiting"}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
     </div>
   );
 }

@@ -250,10 +250,23 @@ export async function removeGuestEmail(eventId: string, emailId: string): Promis
   }
 }
 
-export async function setKeepPhotos(eventId: string, keep: boolean): Promise<ActionResult> {
+
+const FrameInput = z.object({
+  text: z.string().trim().max(40, "40 characters at most."),
+  subtext: z.string().trim().max(40, "40 characters at most."),
+  color: z.enum(["white", "cream", "black"]),
+});
+
+/** Saves the photo frame wording (Custom photo frame add-on). */
+export async function updateFrame(eventId: string, input: unknown): Promise<ActionResult> {
   try {
+    const parsed = FrameInput.safeParse(input);
+    if (!parsed.success) return { ok: false, error: firstIssue(parsed.error) };
     const { supabase } = await ownedEvent(eventId);
-    const { error } = await supabase.from("events").update({ keep_photos: keep }).eq("id", eventId);
+    const { error } = await supabase
+      .from("events")
+      .update({ frame_text: parsed.data.text || null, frame_subtext: parsed.data.subtext || null, frame_color: parsed.data.color })
+      .eq("id", eventId);
     if (error) throw new Error(error.message);
     refresh(eventId);
     return { ok: true };

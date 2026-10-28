@@ -3,7 +3,20 @@ import type { ReactNode } from "react";
 import { Logo } from "@/components/ui";
 
 /** Charcoal-and-cream frame for every guest screen, matching the camera. */
-export function GuestShell({ children, cover, accent }: { children: ReactNode; cover?: string | null; accent?: string }) {
+export type GuestBrand = { logoUrl: string | null } | null;
+
+export function GuestShell({
+  children,
+  cover,
+  accent,
+  brand,
+}: {
+  children: ReactNode;
+  cover?: string | null;
+  accent?: string;
+  /** Your branding add-on: the organiser's logo replaces Lastshot's. */
+  brand?: GuestBrand;
+}) {
   return (
     <div className={`min-h-dvh bg-body text-cream ${cover === undefined ? "pt-[env(safe-area-inset-top)]" : ""}`}>
       {cover !== undefined && (
@@ -17,21 +30,29 @@ export function GuestShell({ children, cover, accent }: { children: ReactNode; c
       )}
       <main className="mx-auto w-full max-w-lg px-5 pb-[max(32px,env(safe-area-inset-bottom))]">{children}</main>
       <footer className="mx-auto flex w-full max-w-lg flex-col gap-5 px-5 pt-4 pb-8 text-sm text-cream-dim">
-        <Link
-          href="/?ref=guest"
-          className="group flex items-center justify-between gap-4 rounded-[18px] border border-cream/12 bg-body-2 px-4 py-3.5 transition-colors hover:border-cream/30"
-        >
-          <span className="flex flex-col">
-            <span className="text-xs tracking-wide text-cream-dim uppercase">Made with</span>
-            <Logo tone="cream" className="origin-left scale-90" />
-          </span>
-          <span className="text-right font-semibold text-cream">
-            Get a camera for your event
-            <span aria-hidden className="ml-1 inline-block text-flash transition-transform group-hover:translate-x-0.5">
-              &rarr;
+        {brand ? (
+          brand.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={brand.logoUrl} alt="" className="max-h-12 max-w-[200px] self-start object-contain" />
+          ) : null
+        ) : (
+          <Link
+            href="/?ref=guest"
+            className="group flex items-center justify-between gap-4 rounded-[18px] border border-cream/12 bg-body-2 px-4 py-3.5 transition-colors hover:border-cream/30"
+          >
+            <span className="flex flex-col">
+              <span className="text-xs tracking-wide text-cream-dim uppercase">Made with</span>
+              <Logo tone="cream" className="origin-left scale-90" />
             </span>
-          </span>
-        </Link>
+            <span className="text-right font-semibold text-cream">
+              Get a camera for your event
+              <span aria-hidden className="ml-1 inline-block text-flash transition-transform group-hover:translate-x-0.5">
+                &rarr;
+              </span>
+            </span>
+          </Link>
+  
+        )}
         <span className="flex gap-4">
           <Link href="/terms" className="underline-offset-4 hover:underline">
             Terms
@@ -45,9 +66,19 @@ export function GuestShell({ children, cover, accent }: { children: ReactNode; c
   );
 }
 
-export function GuestMessage({ title, children, action }: { title: string; children?: ReactNode; action?: ReactNode }) {
+export function GuestMessage({
+  title,
+  children,
+  action,
+  brand,
+}: {
+  title: string;
+  children?: ReactNode;
+  action?: ReactNode;
+  brand?: GuestBrand;
+}) {
   return (
-    <GuestShell>
+    <GuestShell brand={brand}>
       <div className="flex min-h-[70dvh] flex-col items-start justify-center gap-4 pt-16">
         <h1 className="display text-[clamp(36px,10vw,56px)]">{title}</h1>
         {children && <div className="text-lg text-cream-dim">{children}</div>}

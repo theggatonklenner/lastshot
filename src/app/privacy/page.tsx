@@ -22,6 +22,11 @@ const sections: { title: string; body: React.ReactNode }[] = [
           event&apos;s photos are ready. The event organiser can see the address. Every email has an unsubscribe link, and
           the address is deleted with the event.
         </p>
+        <p>
+          If the event offers text alerts and you leave a mobile number, we use it only to send you one text message
+          with a private link when the photos are ready. Texts are sent through our SMS provider, ClickSend. The event
+          organiser can see the number, every text has an opt-out link, and the number is deleted with the event.
+        </p>
       </>
     ),
   },
@@ -44,8 +49,8 @@ const sections: { title: string; body: React.ReactNode }[] = [
     body: (
       <>
         <p>
-          Photos, guest records and email addresses are deleted automatically 180 days after an event ends, unless the
-          organiser chooses to keep them (they&apos;re emailed two weeks before). Organisers can delete photos or a whole
+          Photos, guest records, email addresses and mobile numbers are deleted automatically 180 days after an event
+          ends, or 2 years if the organiser adds longer storage (they&apos;re emailed two weeks before). Organisers can delete photos or a whole
           event sooner, which removes everything for it straight away. Rate-limit records are deleted after a day.
         </p>
         <p>

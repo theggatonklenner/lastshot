@@ -296,8 +296,8 @@ export function Slideshow({
                 alt="QR code to join"
                 className="size-[clamp(96px,11vw,170px)]"
               />
-              <div className="max-w-[15ch]">
-                <p className="display text-[clamp(18px,1.8vw,30px)] leading-[1.05]">
+              <div>
+                <p className="display text-[clamp(18px,1.8vw,30px)] leading-[1.05] whitespace-nowrap">
                   Scan for a camera
                 </p>
                 <p className="mt-1.5 text-[clamp(12px,1vw,16px)] text-graphite">
@@ -328,33 +328,37 @@ export function Slideshow({
               Reconnecting…
             </span>
           )}
-          <div
-            className="flex rounded-full bg-white/10 p-1 backdrop-blur"
-            role="group"
-            aria-label="Seconds per photo"
-          >
-            {SPEEDS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => setSpeed(s)}
-                aria-pressed={speed === s}
-                className={cx(
-                  "rounded-full px-3 py-1 text-sm font-semibold",
-                  speed === s ? "bg-cream text-ink" : "hover:bg-white/10",
-                )}
+          {!empty && (
+            <>
+              <div
+                className="flex rounded-full bg-white/10 p-1 backdrop-blur"
+                role="group"
+                aria-label="Seconds per photo"
               >
-                {s}s
-              </button>
-            ))}
-          </div>
-          <CtlButton onClick={() => setPaused((p) => !p)}>
-            {paused ? "Play" : "Pause"}
-          </CtlButton>
-          <CtlButton onClick={() => void advance()}>Next</CtlButton>
-          <CtlButton onClick={() => setShowQr((q) => !q)}>
-            {showQr ? "Hide code" : "Show code"}
-          </CtlButton>
+                {SPEEDS.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setSpeed(s)}
+                    aria-pressed={speed === s}
+                    className={cx(
+                      "rounded-full px-3 py-1 text-sm font-semibold",
+                      speed === s ? "bg-cream text-ink" : "hover:bg-white/10",
+                    )}
+                  >
+                    {s}s
+                  </button>
+                ))}
+              </div>
+              <CtlButton onClick={() => setPaused((p) => !p)}>
+                {paused ? "Play" : "Pause"}
+              </CtlButton>
+              <CtlButton onClick={() => void advance()}>Next</CtlButton>
+              <CtlButton onClick={() => setShowQr((q) => !q)}>
+                {showQr ? "Hide code" : "Show code"}
+              </CtlButton>
+            </>
+          )}
           <CtlButton onClick={toggleFullscreen} primary>
             Full screen
           </CtlButton>

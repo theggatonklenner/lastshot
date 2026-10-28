@@ -15,7 +15,7 @@ describe("plans", () => {
     ]);
   });
   it("charges only the difference when upgrading", () => {
-    expect(upgradePrice("free", "small")).toBe(5900);
+    expect(upgradePrice("free", "small")).toBe(4900);
     expect(upgradePrice("party", "big")).toBe(8000);
     expect(upgradePrice("big", "party")).toBe(0);
   });

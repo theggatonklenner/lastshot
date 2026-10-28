@@ -12,7 +12,7 @@ export type PlanInfo = {
 
 export const PLANS: PlanInfo[] = [
   { id: "free", name: "Free", price: 0, guests: 10, blurb: "Try it with a few friends." },
-  { id: "small", name: "Small", price: 5900, guests: 50, blurb: "Dinners, birthdays and small parties." },
+  { id: "small", name: "Small", price: 4900, guests: 50, blurb: "Dinners, birthdays and small parties." },
   { id: "party", name: "Party", price: 9900, guests: 100, blurb: "Bigger parties and celebrations." },
   { id: "big", name: "Big event", price: 17900, guests: 300, blurb: "Weddings, formals and big celebrations." },
   { id: "unlimited", name: "Unlimited", price: 29900, guests: null, blurb: "Festivals, schools and anything huge." },

@@ -8,6 +8,7 @@ import { formatDateTime } from "@/lib/format";
 import { Notice, Panel, cx } from "@/components/ui";
 import { PlanButton } from "./plan-button";
 import { SeatsSlider } from "./seats-slider";
+import { PlanPrice } from "@/components/plan-price";
 
 export const metadata: Metadata = { title: "Plan" };
 
@@ -92,10 +93,14 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
                   <span className="rounded-full bg-cobalt px-2.5 py-0.5 text-xs font-bold text-white">Current</span>
                 )}
               </div>
-              <div>
-                <p className="display text-4xl numeric">{formatPrice(p.price)}</p>
-                <p className="text-sm text-graphite">{p.price ? "AUD, once per event" : "No card needed"}</p>
-              </div>
+              <PlanPrice
+                plan={p.id}
+                note={
+                  !isCurrent && !lower && event.plan !== "free" && p.id !== "free"
+                    ? `You pay ${formatPrice(price)} (the difference)`
+                    : undefined
+                }
+              />
               <ul className="flex flex-col gap-1.5 text-[15px]">
                 <li className="font-semibold">{p.guests === null ? "Unlimited guests" : `Up to ${p.guests} guests`}</li>
                 <li className="text-graphite">{p.blurb}</li>

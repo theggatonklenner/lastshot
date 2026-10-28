@@ -3,7 +3,8 @@ import { CameraArt } from "@/components/camera-art";
 import { PRODUCTION_URL } from "@/lib/env";
 import { SiteFooter, SiteHeader } from "@/components/site-header";
 import { LinkButton, cx } from "@/components/ui";
-import { PLANS, formatPrice } from "@/lib/plans";
+import { PLANS } from "@/lib/plans";
+import { PlanPrice } from "@/components/plan-price";
 
 const steps = [
   {
@@ -192,8 +193,8 @@ export default async function Home({ searchParams }: PageProps<"/">) {
             <div className="flex flex-col gap-3">
               <h2 className="display-md text-[clamp(30px,4.5vw,48px)]">Pay per event, not per month</h2>
               <p className="max-w-[52ch] text-lg text-graphite">
-                Start free. If more guests are coming, upgrade the event once, even halfway through the night. Paid
-                plans remove the watermark, and every plan has every feature.
+                Every guest seat is worth $2. Plans bundle them at up to 70% off. Start free, then upgrade once, even
+                halfway through the night. Paid plans remove the watermark, and every plan has every feature.
               </p>
             </div>
             <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -206,15 +207,12 @@ export default async function Home({ searchParams }: PageProps<"/">) {
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <h3 className="text-lg font-bold">{p.name}</h3>
+                    <h3 className="text-lg font-bold whitespace-nowrap">{p.name}</h3>
                     {p.id === "big" && (
-                      <span className="rounded-full bg-cobalt px-2.5 py-0.5 text-xs font-bold text-white">Weddings</span>
+                      <span className="shrink-0 rounded-full bg-cobalt px-2.5 py-0.5 text-xs font-bold text-white">Weddings</span>
                     )}
                   </div>
-                  <p className="flex flex-col">
-                    <span className="display text-5xl numeric">{p.price ? formatPrice(p.price) : "$0"}</span>
-                    <span className="mt-1 text-sm text-graphite">{p.price ? "AUD, once per event" : "No card needed"}</span>
-                  </p>
+                  <PlanPrice plan={p.id} />
                   <p className="font-semibold">{p.guests === null ? "Unlimited guests" : `Up to ${p.guests} guests`}</p>
                   <p className="text-graphite">{p.blurb}</p>
                   <p className="mt-auto text-sm text-graphite">{p.id === "free" ? "Small Lastshot watermark on photos" : "No watermark"}</p>

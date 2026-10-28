@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createHmac } from "node:crypto";
-import { PLANS, formatPrice, planInfo, seatDiscount, seatPrice, seatRate, upgradePrice, validSeatCount } from "./plans";
+import { PLANS, formatPrice, planInfo, planSaving, planValue, seatDiscount, seatPrice, seatRate, upgradePrice, validSeatCount } from "./plans";
 import { bonusPending, bonusUnlocked, shotLimit } from "./rules";
 import { verifyStripeSignature } from "./server/stripe";
 
@@ -41,6 +41,15 @@ describe("extra seats", () => {
     expect(validSeatCount(7)).toBe(false);
     expect(validSeatCount(0)).toBe(false);
     expect(validSeatCount(505)).toBe(false);
+  });
+});
+
+describe("plan value", () => {
+  it("compares plans with $2 seats", () => {
+    expect(planValue("party")).toBe(20000);
+    expect(planSaving("big")).toEqual({ cents: 42100, percent: 70 });
+    expect(planSaving("free")).toBeNull();
+    expect(planValue("unlimited")).toBeNull();
   });
 });
 

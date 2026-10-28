@@ -78,3 +78,17 @@ export function guestLimitText(plan: Plan) {
   const g = planInfo(plan).guests;
   return g === null ? "No guest limit" : `Up to ${g} guests`;
 }
+
+/** What a plan's guests would cost at the standard seat price. null for Unlimited. */
+export function planValue(plan: Plan): number | null {
+  const g = planInfo(plan).guests;
+  return g === null ? null : g * SEAT_TIERS[SEAT_TIERS.length - 1].cents;
+}
+
+/** Saving against the standard seat price, in cents and whole percent. */
+export function planSaving(plan: Plan): { cents: number; percent: number } | null {
+  const value = planValue(plan);
+  const price = planInfo(plan).price;
+  if (value === null || price === 0 || value <= price) return null;
+  return { cents: value - price, percent: Math.round((1 - price / value) * 100) };
+}

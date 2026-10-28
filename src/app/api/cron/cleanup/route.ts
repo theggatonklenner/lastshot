@@ -38,6 +38,7 @@ async function run(req: NextRequest) {
           "Lastshot keeps photos for 180 days after an event ends, then deletes them to keep everyone's photos private.",
           "Download anything you want to keep, or choose to keep the photos for longer in your event settings.",
         ],
+        eyebrow: "Two weeks left",
         buttonLabel: "Open the event",
         buttonUrl: `${siteUrl()}/dashboard/events/${e.id}/settings`,
       });

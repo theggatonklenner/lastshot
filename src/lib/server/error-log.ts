@@ -55,6 +55,8 @@ export async function recordError(r: ErrorReport): Promise<void> {
         `Where: ${r.source === "server" ? "server" : "a visitor's browser"}${r.route ? `, ${r.route}` : ""}${cleanPath(r.path) ? ` (${cleanPath(r.path)})` : ""}.`,
         "You'll get another email only if it keeps happening after an hour.",
       ],
+      eyebrow: "Admin alert",
+      footer: "You're getting this because you're a Lastshot site admin.",
       buttonLabel: "See errors",
       buttonUrl: `${siteUrl()}/admin/errors`,
     });

@@ -79,6 +79,7 @@ export async function inviteCoOrganiser(
           "As a co-organiser you can see and moderate every photo, manage guests and change the event's settings on Lastshot.",
           `Accept with an account for ${email}. The link works for 14 days.`,
         ],
+        eyebrow: "Co-organiser invite",
         buttonLabel: "Accept the invite",
         buttonUrl: link,
       });

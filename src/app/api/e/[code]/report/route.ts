@@ -59,6 +59,7 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/e/[code]/re
           `A guest reported a photo because ${REASON_TEXT[parsed.data.reason]}.`,
           "It's still visible for now and is flagged in your dashboard. If three people report it, it's hidden until you review it.",
         ],
+        eyebrow: "Photo reported",
         buttonLabel: "Review flagged photos",
         buttonUrl: `${siteUrl()}/dashboard/events/${event.id}/photos?filter=flagged`,
       });

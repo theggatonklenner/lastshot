@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash } from "node:crypto";
+import { esc, renderEmail } from "@/lib/email-layout";
 
 export type OutgoingEmail = {
   to: string;
@@ -61,39 +62,24 @@ export async function sendBatch(
   }
 }
 
-function esc(s: string) {
-  return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-}
-
-/** The "your photos are ready" email. Plain table layout so it renders in every mail app. */
+/** The "your photos are ready" email to a guest. */
 export function galleryReadyEmail(p: { eventTitle: string; galleryUrl: string; unsubscribeUrl: string; photoCount: number }) {
   const title = esc(p.eventTitle);
   const count = p.photoCount === 1 ? "1 photo" : `${p.photoCount} photos`;
   const subject = `The photos from ${p.eventTitle} are ready`;
-  const html = `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
-<title>${esc(subject)}</title></head>
-<body style="margin:0;padding:0;background:#f3f4f0;font-family:Arial,Helvetica,sans-serif;color:#16171a">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f0;padding:24px 12px">
-<tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#1d1e21;border-radius:20px;overflow:hidden">
-<tr><td style="background:#2546d8;padding:18px 28px;color:#ffffff;font-size:20px;font-weight:bold;letter-spacing:-0.3px">lastshot</td></tr>
-<tr><td style="padding:32px 28px 8px;color:#f1ecdf">
-<p style="margin:0 0 6px;font-size:15px;color:#b9b4a7">${title}</p>
-<h1 style="margin:0 0 16px;font-size:30px;line-height:1.1;color:#f1ecdf">Your photos are ready</h1>
-<p style="margin:0 0 24px;font-size:16px;line-height:1.5;color:#f1ecdf">The roll has been developed. ${count} from everyone's cameras are waiting in the shared gallery.</p>
-</td></tr>
-<tr><td style="padding:0 28px 32px">
-<a href="${esc(p.galleryUrl)}" style="display:inline-block;background:#ffd23f;color:#1d1e21;text-decoration:none;font-weight:bold;font-size:17px;padding:15px 28px;border-radius:999px">See and download the photos</a>
-<p style="margin:20px 0 0;font-size:13px;line-height:1.5;color:#b9b4a7">This link is just for you. It opens the gallery on any device.</p>
-</td></tr>
-</table>
-<p style="max-width:520px;margin:16px auto 0;font-size:12px;line-height:1.5;color:#565962">
-You're getting this because you asked to be emailed when the photos from ${title} were ready. This is the only email we'll send for this event.
-<a href="${esc(p.unsubscribeUrl)}" style="color:#565962">Unsubscribe</a>
-</p>
-</td></tr></table>
-</body></html>`;
+  const html = renderEmail({
+    theme: "dark",
+    preheader: `${count} from everyone's cameras are waiting in the shared gallery.`,
+    eyebrow: title,
+    heading: "Your photos are developed",
+    blocks: [
+      { kind: "counter", value: String(p.photoCount).padStart(2, "0"), label: `${p.photoCount === 1 ? "shot" : "shots"} from everyone's<br>cameras on one roll` },
+      { kind: "p", html: "The roll is in. Flick through every shot from the night, then save your favourites or download the lot." },
+    ],
+    button: { label: "Open the gallery", url: esc(p.galleryUrl) },
+    note: "This link is just for you. It opens the gallery on any device, no account needed.",
+    footer: `You're getting this because you asked to be told when the photos from ${title} were ready. This is the only email we'll send about this event. <a href="${esc(p.unsubscribeUrl)}" style="color:#565962">Unsubscribe</a>`,
+  });
   const text = `Your photos from ${p.eventTitle} are ready.
 
 ${count} are waiting in the shared gallery:
@@ -106,17 +92,26 @@ Unsubscribe: ${p.unsubscribeUrl}`;
   return { subject, html, text };
 }
 
-/** Short plain email to an organiser. */
-export function organiserNoticeEmail(p: { heading: string; lines: string[]; buttonLabel: string; buttonUrl: string }) {
-  const body = p.lines.map((l) => `<p style="margin:0 0 14px;font-size:16px;line-height:1.5;color:#16171a">${esc(l)}</p>`).join("");
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(p.heading)}</title></head>
-<body style="margin:0;padding:24px 12px;background:#f3f4f0;font-family:Arial,Helvetica,sans-serif">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #d7d9d1;border-radius:16px">
-<tr><td style="padding:24px 28px 8px"><p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#2546d8">lastshot</p>
-<h1 style="margin:0 0 16px;font-size:24px;line-height:1.2;color:#16171a">${esc(p.heading)}</h1>${body}</td></tr>
-<tr><td style="padding:4px 28px 28px"><a href="${esc(p.buttonUrl)}" style="display:inline-block;background:#2546d8;color:#ffffff;text-decoration:none;font-weight:bold;padding:13px 22px;border-radius:10px">${esc(p.buttonLabel)}</a></td></tr>
-</table></td></tr></table></body></html>`;
+/** Short email to an organiser or admin. */
+export function organiserNoticeEmail(p: {
+  heading: string;
+  lines: string[];
+  buttonLabel: string;
+  buttonUrl: string;
+  eyebrow?: string;
+  note?: string;
+  footer?: string;
+}) {
+  const html = renderEmail({
+    theme: "light",
+    preheader: p.lines[0] ?? p.heading,
+    eyebrow: p.eyebrow ? esc(p.eyebrow) : undefined,
+    heading: esc(p.heading),
+    blocks: p.lines.map((l) => ({ kind: "p" as const, html: esc(l) })),
+    button: { label: esc(p.buttonLabel), url: esc(p.buttonUrl) },
+    note: p.note ? esc(p.note) : undefined,
+    footer: esc(p.footer ?? "You're getting this because you organise events on Lastshot."),
+  });
   const text = `${p.heading}\n\n${p.lines.join("\n\n")}\n\n${p.buttonLabel}: ${p.buttonUrl}`;
   return { subject: p.heading, html, text };
 }

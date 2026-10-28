@@ -1,8 +1,9 @@
 "use client";
 
+import { MysteryWheel } from "./mystery-wheel";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { CameraTheme } from "@/lib/themes";
 import { develop, type PhotoFrame } from "@/lib/client/develop";
 import { guestToken } from "@/lib/client/upload-queue";
@@ -24,6 +25,8 @@ export type CameraProps = {
   retakesLeft?: number;
   /** Mystery shot prompt, once it has unlocked. */
   mysteryPrompt?: string | null;
+  /** Slices for the spin wheel, with the guest's own challenge at `winner`. */
+  mysteryWheel?: { slices: string[]; winner: number } | null;
   initialUsed: number;
   allowLibrary: boolean;
   demo?: boolean;
@@ -31,11 +34,30 @@ export type CameraProps = {
   doneHref: string;
 };
 
+const noopSubscribe = () => () => {};
+
 export function Camera(props: CameraProps) {
   const { code, title, theme, dateStamp, frame, initialUsed, allowLibrary, demo, exitHref, doneHref } = props;
   const [limit, setLimit] = useState(props.limit);
   const [retakesLeft, setRetakesLeft] = useState(props.retakesLeft ?? 0);
   const [mystery, setMystery] = useState<string | null>(props.mysteryPrompt ?? null);
+  const [wheel, setWheel] = useState(props.mysteryWheel ?? null);
+  const [wheelOpen, setWheelOpen] = useState(false);
+  const wheelKey = `lastshot:wheel:${code}`;
+  // Read after hydration so the server and browser render the same thing first.
+  const spunBefore = useSyncExternalStore(
+    noopSubscribe,
+    () => {
+      try {
+        return localStorage.getItem(wheelKey) === "1";
+      } catch {
+        return false;
+      }
+    },
+    () => false,
+  );
+  const [spunNow, setSpun] = useState(false);
+  const spun = spunBefore || spunNow;
   const [retaking, setRetaking] = useState(false);
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -65,6 +87,7 @@ export function Camera(props: CameraProps) {
         setLimit(j.guest.shotsLimit);
         setRetakesLeft(j.guest.retakesLeft ?? 0);
         setMystery(j.guest.mystery ?? null);
+        setWheel(j.guest.mysteryWheel ?? null);
       } catch {
         /* offline: try again later */
       }
@@ -268,11 +291,38 @@ export function Camera(props: CameraProps) {
         </div>
       </div>
 
-      {mystery && remaining > 0 && (
+      {mystery && remaining > 0 && wheel && !spun ? (
+        <button
+          type="button"
+          onClick={() => setWheelOpen(true)}
+          className="mx-4 mt-3 flex items-center justify-between gap-3 rounded-[14px] bg-flash px-4 py-2.5 text-left text-body"
+        >
+          <span>
+            <span className="block text-xs font-bold tracking-wide uppercase">Mystery shot unlocked</span>
+            <span className="text-[15px] leading-snug font-semibold">Spin the wheel for your challenge</span>
+          </span>
+          <span className="shrink-0 rounded-full bg-body px-3 py-1 text-sm font-bold text-flash">Spin</span>
+        </button>
+      ) : mystery && remaining > 0 ? (
         <div className="mx-4 mt-3 flex items-center gap-3 rounded-[14px] bg-flash px-4 py-2.5 text-body">
           <span className="text-xs font-bold tracking-wide uppercase">Mystery shot</span>
           <span className="text-[15px] leading-snug font-semibold">{mystery}</span>
         </div>
+      ) : null}
+      {wheelOpen && wheel && (
+        <MysteryWheel
+          slices={wheel.slices}
+          winner={wheel.winner}
+          onDone={() => {
+            setWheelOpen(false);
+            setSpun(true);
+            try {
+              localStorage.setItem(wheelKey, "1");
+            } catch {
+              /* private mode: they'll just see the challenge text */
+            }
+          }}
+        />
       )}
 
       {/* Status line */}

@@ -101,6 +101,20 @@ describe("mystery shot", () => {
     expect(MYSTERY_PROMPTS).toContain(a);
     expect(mysteryPromptFor("", "guest-abc")).toBe(a);
   });
+  it("picks from the organiser's list and builds a wheel that lands on it", async () => {
+    const { mysteryPromptFor, wheelFor } = await import("./mystery");
+    const list = "Find a hat\nHug the host\nShoot the cake";
+    for (const g of ["a", "b", "c", "guest-xyz"]) {
+      const mine = mysteryPromptFor(list, g);
+      expect(["Find a hat", "Hug the host", "Shoot the cake"]).toContain(mine);
+      const w = wheelFor(list, g);
+      expect(w.slices[w.winner]).toBe(mine);
+      expect(w.slices.length).toBeGreaterThanOrEqual(4);
+      expect(wheelFor(list, g)).toEqual(w);
+    }
+    const big = wheelFor(null, "g1");
+    expect(big.slices.length).toBe(8);
+  });
   it("adds one shot once unlocked", async () => {
     const { shotLimit } = await import("./rules");
     const e = { photos_per_guest: 10, bonus_shots: 0, bonus_at: null, mystery_at: "2026-10-28T10:00:00Z" };

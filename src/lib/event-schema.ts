@@ -26,7 +26,14 @@ export const EventInput = z
     bonus_shots: z.coerce.number().int().min(0).max(50, "50 bonus shots at most."),
     bonus_at: z.iso.datetime({ offset: true }).nullable().optional(),
     mystery_at: z.iso.datetime({ offset: true }).nullable().optional(),
-    mystery_prompt: z.string().trim().max(120, "120 characters at most.").nullable().optional(),
+    mystery_prompt: z
+      .string()
+      .trim()
+      .max(2600)
+      .refine((v) => v.split("\n").filter((l) => l.trim()).length <= 20, "Add up to 20 challenges.")
+      .refine((v) => v.split("\n").every((l) => l.trim().length <= 120), "Keep each challenge to 120 characters.")
+      .nullable()
+      .optional(),
     reveal_mode: z.enum(["live", "scheduled", "manual"]),
     reveal_at: z.iso.datetime({ offset: true }).nullable().optional(),
     gallery_visibility: z.enum(["guests", "public", "private"]),

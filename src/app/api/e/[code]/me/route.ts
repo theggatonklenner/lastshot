@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { getEventByCode, getGuestForEvent } from "@/lib/server/guest";
 import { guestError } from "@/lib/server/http";
 import { RETAKES_PER_ROLL, acceptingSubmissions, mysteryUnlocked, shotLimit } from "@/lib/rules";
-import { mysteryPromptFor } from "@/lib/mystery";
+import { mysteryPromptFor, wheelFor } from "@/lib/mystery";
 
 /** Server-confirmed shot count for the current guest. */
 export async function GET(_req: NextRequest, ctx: RouteContext<"/api/e/[code]/me">) {
@@ -22,6 +22,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/e/[code]/me
             shotsLimit: shotLimit(event),
             retakesLeft: Math.max(0, RETAKES_PER_ROLL - guest.retakes_used),
             mystery: mysteryUnlocked(event) ? mysteryPromptFor(event.mystery_prompt, guest.id) : null,
+            mysteryWheel: mysteryUnlocked(event) ? wheelFor(event.mystery_prompt, guest.id) : null,
           }
         : null,
     },

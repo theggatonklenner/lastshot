@@ -12,6 +12,7 @@ import { formatEventDate, formatDateTime } from "@/lib/format";
 import { eventTypeLabel } from "@/lib/rules";
 import { THEMES } from "@/lib/themes";
 import { ADDONS, PLANS, addonPrice, applyDiscount, formatPrice, planInfo, planRank, priceCart } from "@/lib/plans";
+import { parseChallenges } from "@/lib/mystery";
 import { DiscountField, type AppliedDiscount } from "@/components/discount-field";
 import { PlanPrice } from "@/components/plan-price";
 import { redeemCredit, startCartCheckout } from "@/app/dashboard/events/[id]/upgrade/actions";
@@ -480,7 +481,16 @@ function Review({
         ? `${value.photos_per_guest}, plus ${value.bonus_shots} at ${formatDateTime(value.bonus_at ?? null)}`
         : String(value.photos_per_guest),
     ],
-    ["Mystery shot", value.mystery_at ? `At ${formatDateTime(value.mystery_at)}${value.mystery_prompt ? `: ${value.mystery_prompt}` : ""}` : "Off"],
+    [
+      "Mystery shot",
+      value.mystery_at
+        ? `At ${formatDateTime(value.mystery_at)}, ${
+            parseChallenges(value.mystery_prompt).length
+              ? `${parseChallenges(value.mystery_prompt).length} of your challenges`
+              : "our challenges"
+          }`
+        : "Off",
+    ],
     ["Camera style", THEMES[value.theme].name],
     ["Gallery opens", reveal],
     ["Who sees the gallery", visibility],

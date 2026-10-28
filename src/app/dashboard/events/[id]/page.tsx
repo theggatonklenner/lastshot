@@ -1,3 +1,4 @@
+import { parseChallenges } from "@/lib/mystery";
 import Link from "next/link";
 import QRCode from "qrcode";
 import { requireOwnedEvent } from "@/lib/server/organiser";
@@ -71,7 +72,10 @@ export default async function EventOverview({ params, searchParams }: PageProps<
         {event.mystery_at && !isPast(event.mystery_at) && (
           <Notice tone="info">
             The mystery shot unlocks for every guest at {formatDateTime(event.mystery_at)}
-            {event.mystery_prompt ? `: “${event.mystery_prompt}”` : ", each with a random challenge"}.
+            {parseChallenges(event.mystery_prompt).length
+              ? `. Guests spin for one of your ${parseChallenges(event.mystery_prompt).length} challenges`
+              : ", each spinning for a random challenge"}
+            .
           </Notice>
         )}
         {bonusLater && event.bonus_at && (

@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import type { EventInputType } from "@/lib/event-schema";
 import { EVENT_TYPES } from "@/lib/rules";
 import { THEMES, type ThemeId } from "@/lib/themes";
 import { isoToLocalInput, localInputToIso } from "@/lib/format";
 import { Choice, Field, Input, Select, Textarea, Toggle, cx } from "@/components/ui";
 import { FilterPreview } from "@/components/filter-preview";
+import { MAX_CHALLENGES, MAX_CHALLENGE_LENGTH, MYSTERY_PROMPTS, joinChallenges, parseChallenges } from "@/lib/mystery";
 import type { PhotoFrame } from "@/lib/client/develop";
 
 type Props = {
@@ -178,7 +180,7 @@ export function RollFields({ value, set, errors, frame }: Props & { frame?: Phot
           description="At a set time, every guest gets one extra shot with a surprise challenge, like “Photograph whoever is closest to you right now”."
         />
         {value.mystery_at && (
-          <div className="grid gap-4 sm:grid-cols-[1fr_1.4fr]">
+          <div className="grid gap-4">
             <Field label="Unlocks at" htmlFor="mystery_at" hint="Uses your device's time zone.">
               <Input
                 id="mystery_at"
@@ -187,20 +189,11 @@ export function RollFields({ value, set, errors, frame }: Props & { frame?: Phot
                 onChange={(e) => set("mystery_at", localInputToIso(e.target.value))}
               />
             </Field>
-            <Field
-              label="Challenge (optional)"
-              htmlFor="mystery_prompt"
+            <ChallengeList
+              value={value.mystery_prompt ?? null}
+              onChange={(v) => set("mystery_prompt", v)}
               error={errors?.mystery_prompt}
-              hint="Leave empty and each guest gets a different random challenge."
-            >
-              <Input
-                id="mystery_prompt"
-                value={value.mystery_prompt ?? ""}
-                maxLength={120}
-                placeholder="Get a photo with the birthday girl"
-                onChange={(e) => set("mystery_prompt", e.target.value || null)}
-              />
-            </Field>
+            />
           </div>
         )}
       </div>
@@ -383,6 +376,79 @@ export function GalleryFields({
           className="uppercase"
         />
       </Field>
+    </div>
+  );
+}
+
+/** The organiser's mystery challenges. Each guest spins a wheel and lands on one at random. */
+function ChallengeList({
+  value,
+  onChange,
+  error,
+}: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+  error?: string;
+}) {
+  // Keep blank rows while editing; only the saved value drops them.
+  const [rows, setRows] = useState<string[]>(() => parseChallenges(value));
+  const update = (next: string[]) => {
+    setRows(next);
+    onChange(joinChallenges(next));
+  };
+  const suggestions = MYSTERY_PROMPTS.filter((p) => !rows.includes(p));
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[15px] font-semibold">Challenges</p>
+      <p className="text-sm text-graphite">
+        {rows.length
+          ? "Each guest spins a wheel and lands on one of these at random."
+          : "Leave this empty to use our challenges, or add your own. Each guest spins a wheel and lands on one at random."}
+      </p>
+      {rows.map((r, i) => (
+        <div key={i} className="flex gap-2">
+          <Input
+            aria-label={`Challenge ${i + 1}`}
+            value={r}
+            maxLength={MAX_CHALLENGE_LENGTH}
+            placeholder="Get a photo with the birthday girl"
+            onChange={(e) => update(rows.map((x, j) => (j === i ? e.target.value : x)))}
+          />
+          <button
+            type="button"
+            onClick={() => update(rows.filter((_, j) => j !== i))}
+            className="shrink-0 rounded-control px-3 text-sm font-semibold text-graphite hover:bg-ink/5 hover:text-ink"
+            aria-label={`Remove challenge ${i + 1}`}
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+      <div className="flex flex-wrap gap-2">
+        {rows.length < MAX_CHALLENGES && (
+          <button
+            type="button"
+            onClick={() => setRows([...rows, ""])}
+            className="rounded-full border border-line px-3 py-1 text-sm font-semibold hover:border-ink/40"
+          >
+            Add a challenge
+          </button>
+        )}
+        {rows.length < MAX_CHALLENGES && suggestions.length > 0 && (
+          <button
+            type="button"
+            onClick={() => update([...rows.filter((r) => r.trim()), ...suggestions.slice(0, 5)].slice(0, MAX_CHALLENGES))}
+            className="rounded-full border border-line px-3 py-1 text-sm font-semibold hover:border-ink/40"
+          >
+            Add 5 of ours
+          </button>
+        )}
+      </div>
+      {error && (
+        <p className="text-sm text-signal" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

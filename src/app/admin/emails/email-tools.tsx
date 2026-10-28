@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { retryFailedEmails, runEmailSender } from "@/app/admin/actions";
+import { retryFailedEmails, runEmailSender, sendTestEmail } from "@/app/admin/actions";
 import { Button, Notice } from "@/components/ui";
 
 export function EmailTools({ failedCount }: { failedCount: number }) {
@@ -23,6 +23,23 @@ export function EmailTools({ failedCount }: { failedCount: number }) {
       <div className="flex flex-wrap gap-2">
         <Button size="sm" pending={pending} onClick={() => start(async () => report(await runEmailSender()))}>
           Send due emails now
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const res = await sendTestEmail();
+              setMessage(
+                res.ok
+                  ? { tone: "success", text: `Test email sent to ${res.data?.to}. Check your inbox (and spam).` }
+                  : { tone: "error", text: `Test email failed: ${res.error}` },
+              );
+            })
+          }
+        >
+          Send test email to me
         </Button>
         {failedCount > 0 && (
           <Button size="sm" variant="secondary" disabled={pending} onClick={() => start(async () => report(await retryFailedEmails()))}>

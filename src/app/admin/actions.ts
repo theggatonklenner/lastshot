@@ -7,6 +7,8 @@ import { admin } from "@/lib/supabase/admin";
 import { assertAdmin } from "@/lib/server/admin-auth";
 import { removeObjects } from "@/lib/server/media";
 import { sendDueGalleryEmails } from "@/lib/server/gallery-emails";
+import { emailConfigured, galleryReadyEmail, sendBatch } from "@/lib/server/email";
+import { siteUrl } from "@/lib/env";
 
 type Result<T = undefined> = { ok: true; data?: T } | { ok: false; error: string };
 
@@ -165,6 +167,30 @@ export async function runEmailSender(): Promise<Result<{ sent: number; failed: n
     const summary = await sendDueGalleryEmails({ limit: 200 });
     revalidatePath("/admin/emails");
     return { ok: true, data: { sent: summary.sent, failed: summary.failed, skipped: summary.skipped } };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Sends a sample "photos are ready" email to the signed-in admin. */
+export async function sendTestEmail(): Promise<Result<{ to: string }>> {
+  try {
+    const { user } = await assertAdmin();
+    if (!user.email) throw new Error("Your account has no email address.");
+    if (!emailConfigured()) throw new Error("Add RESEND_API_KEY and EMAIL_FROM in Vercel, then redeploy.");
+    const base = siteUrl();
+    const mail = galleryReadyEmail({
+      eventTitle: "Lastshot test event",
+      galleryUrl: `${base}/try`,
+      unsubscribeUrl: `${base}/privacy`,
+      photoCount: 27,
+    });
+    const res = await sendBatch(
+      [{ to: user.email, subject: `[Test] ${mail.subject}`, html: mail.html, text: mail.text }],
+      `test:${user.id}:${Date.now()}`,
+    );
+    if (!res.ok) throw new Error(res.error);
+    return { ok: true, data: { to: user.email } };
   } catch (e) {
     return fail(e);
   }

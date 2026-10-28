@@ -53,6 +53,7 @@ type EventRow = {
   addon_frame: boolean;
   addon_branding: boolean;
   addon_storage: boolean;
+  addon_storage_1y: boolean;
   addon_sms: boolean;
   frame_text: string | null;
   frame_subtext: string | null;
@@ -60,7 +61,7 @@ type EventRow = {
   brand_logo_path: string | null;
 };
 
-export type Addon = "frame" | "branding" | "storage" | "sms";
+export type Addon = "frame" | "branding" | "storage" | "storage1y" | "sms";
 
 type SmsRow = {
   id: string;
@@ -82,8 +83,9 @@ type PaymentRow = {
   id: string;
   event_id: string | null;
   user_id: string | null;
-  kind: "plan" | "seats" | "addon";
+  kind: "plan" | "seats" | "addon" | "bundle";
   addon: Addon | null;
+  addons: Addon[];
   plan: Exclude<Plan, "free"> | null;
   extra_guests: number;
   amount_cents: number;

@@ -95,6 +95,7 @@ export default async function EventOverview({ params, searchParams }: PageProps<
                   deleteAfter={retentionUntil(event)?.toISOString() ?? null}
                   ended
                   extended={event.addon_storage}
+            oneYear={event.addon_storage_1y}
                 />
               </div>
             )}

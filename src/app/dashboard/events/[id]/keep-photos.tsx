@@ -9,6 +9,7 @@ export function KeepPhotos({
   deleteAfter,
   ended,
   extended,
+  oneYear,
 }: {
   eventId: string;
   keep: boolean;
@@ -16,8 +17,9 @@ export function KeepPhotos({
   deleteAfter: string | null;
   ended: boolean;
   extended: boolean;
+  oneYear?: boolean;
 }) {
-  const period = extended ? "2 years" : "180 days";
+  const period = extended ? "2 years" : oneYear ? "1 year" : "180 days";
   const description = keep
     ? "Photos stay until you delete them or the event."
     : ended && deleteAfter
@@ -26,11 +28,11 @@ export function KeepPhotos({
 
   return (
     <div className="flex flex-col gap-1 py-3">
-      <p className="font-semibold">{extended ? "Photos kept for 2 years" : "Photos kept for 180 days"}</p>
+      <p className="font-semibold">Photos kept for {period}</p>
       <p className="text-sm text-graphite">{description}</p>
       {!extended && !keep && (
         <Link href={`/dashboard/events/${eventId}/upgrade#addons`} className="mt-1 self-start text-sm font-semibold text-cobalt hover:underline">
-          Keep them for 2 years
+          {oneYear ? "Keep them for 2 years" : "Keep them longer"}
         </Link>
       )}
     </div>

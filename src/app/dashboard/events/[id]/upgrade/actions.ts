@@ -139,3 +139,61 @@ export async function startAddonCheckout(_prev: CheckoutState, form: FormData): 
   if (!url) return { error: "Couldn't open the payment page. Try again in a minute." };
   redirect(url);
 }
+
+/**
+ * One checkout for a plan and several add-ons, used at the end of the
+ * new-event setup. Prices are worked out here, never taken from the browser.
+ */
+export async function startBundleCheckout(eventId: string, plan: Plan, addons: Addon[]): Promise<CheckoutState> {
+  const { event, user } = await requireOwnedEvent(eventId);
+  const wantPlan = PLAN_ORDER.includes(plan) && plan !== "free" && planRank(plan) > planRank(event.plan) ? plan : null;
+  let wanted = [...new Set(addons)].filter((a) => ADDONS.some((x) => x.id === a) && !hasAddon(event, a));
+  if (wanted.includes("storage")) wanted = wanted.filter((a) => a !== "storage1y");
+  if (!wantPlan && wanted.length === 0) return { error: "Nothing to pay for." };
+  if (!stripeConfigured()) return { error: "Payments aren't set up yet. Your event is saved on the Free plan." };
+
+  // SMS is priced on the plan the event will have after paying.
+  const pricedAs = { plan: wantPlan ?? event.plan, addon_storage_1y: event.addon_storage_1y };
+  const items = [
+    ...(wantPlan
+      ? [{ amountCents: upgradePrice(event.plan, wantPlan), name: `${planInfo(wantPlan).name} plan: ${event.title}`, description: `${guestLimitText(wantPlan)} for one event.` }]
+      : []),
+    ...wanted.map((a) => ({ amountCents: addonPrice(a, pricedAs), name: addonInfo(a).name, description: addonInfo(a).blurb })),
+  ];
+  const amount = items.reduce((n, it) => n + it.amountCents, 0);
+  const base = `${siteUrl()}/dashboard/events/${event.id}/upgrade`;
+  let url: string | null = null;
+  try {
+    const session = await createCheckoutSession({
+      items,
+      description: `Lastshot: ${event.title}`,
+      email: user.email!,
+      successUrl: `${base}?paid=bundle&from=new&session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${base}?cancelled=1&from=new`,
+      metadata: { event_id: event.id, kind: "bundle", plan: wantPlan ?? "", addons: wanted.join(","), user_id: user.id },
+      idempotencyKey: `bundle:${event.id}:${wantPlan ?? "-"}:${wanted.sort().join("+")}:${user.id}:${Math.floor(Date.now() / 600_000)}`,
+    });
+    const { error } = await admin()
+      .from("payments")
+      .upsert(
+        {
+          event_id: event.id,
+          user_id: user.id,
+          kind: "bundle",
+          plan: wantPlan as Exclude<Plan, "free"> | null,
+          addons: wanted,
+          extra_guests: 0,
+          amount_cents: amount,
+          stripe_session_id: session.id,
+        },
+        { onConflict: "stripe_session_id", ignoreDuplicates: true },
+      );
+    if (error) throw new Error(error.message);
+    url = session.url;
+  } catch (e) {
+    console.error("bundle checkout failed", e);
+    return { error: "Couldn't open the payment page. Your event is saved; you can pay from its plan page." };
+  }
+  if (!url) return { error: "Couldn't open the payment page. Your event is saved; you can pay from its plan page." };
+  redirect(url);
+}

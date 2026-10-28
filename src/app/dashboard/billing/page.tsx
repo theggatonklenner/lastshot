@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireOrganiser } from "@/lib/server/organiser";
 import { stripeConfigured } from "@/lib/server/stripe";
-import { addonInfo, formatPrice, planInfo } from "@/lib/plans";
+import { formatPrice, paymentLabel } from "@/lib/plans";
 import { formatDateTime } from "@/lib/format";
 import { EmptyState, Panel, buttonClass, cx } from "@/components/ui";
 import type { Addon, Plan } from "@/lib/database.types";
@@ -13,8 +13,9 @@ type Row = {
   id: string;
   paid_at: string | null;
   created_at: string;
-  kind: "plan" | "seats" | "addon";
+  kind: "plan" | "seats" | "addon" | "bundle";
   addon: Addon | null;
+  addons: Addon[];
   plan: Plan | null;
   extra_guests: number;
   amount_cents: number;
@@ -29,7 +30,7 @@ export default async function BillingPage() {
   const { supabase, user } = await requireOrganiser("/dashboard/billing");
   const { data } = await supabase
     .from("payments")
-    .select("id, paid_at, created_at, kind, plan, addon, extra_guests, amount_cents, status, receipt_email, user_id, event_id, events(title)")
+    .select("id, paid_at, created_at, kind, plan, addon, addons, extra_guests, amount_cents, status, receipt_email, user_id, event_id, events(title)")
     .in("status", ["paid", "refunded"])
     .order("paid_at", { ascending: false });
   const rows = (data ?? []) as unknown as Row[];
@@ -200,7 +201,5 @@ function Stat({ label, value, sub }: { label: string; value: string; sub: string
 }
 
 function itemName(r: Row) {
-  if (r.kind === "seats") return `${r.extra_guests} extra seats`;
-  if (r.kind === "addon" && r.addon) return addonInfo(r.addon).name;
-  return `${planInfo(r.plan ?? "free").name} plan`;
+  return paymentLabel(r);
 }

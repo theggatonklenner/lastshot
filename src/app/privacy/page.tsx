@@ -50,7 +50,7 @@ const sections: { title: string; body: React.ReactNode }[] = [
       <>
         <p>
           Photos, guest records, email addresses and mobile numbers are deleted automatically 180 days after an event
-          ends, or 2 years if the organiser adds longer storage (they&apos;re emailed two weeks before). Organisers can delete photos or a whole
+          ends, or up to 2 years if the organiser adds longer storage (they&apos;re emailed two weeks before). Organisers can delete photos or a whole
           event sooner, which removes everything for it straight away. Rate-limit records are deleted after a day.
         </p>
         <p>

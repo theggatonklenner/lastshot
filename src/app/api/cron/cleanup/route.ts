@@ -36,7 +36,7 @@ async function run(req: NextRequest) {
         heading: `Photos from ${e.title} will be deleted on ${dateFmt.format(new Date(e.delete_after))}`,
         lines: [
           "Lastshot deletes photos after an event to keep everyone's photos private.",
-          "Download anything you want to keep, or add \"Keep photos for 2 years\" from the event's plan page.",
+          "Download anything you want to keep, or keep them for longer (1 or 2 years) from the event's plan page.",
         ],
         eyebrow: "Two weeks left",
         buttonLabel: "Open the event",

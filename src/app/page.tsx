@@ -230,7 +230,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
               </li>
               <li>
                 <span className="font-semibold text-ink">No subscription.</span> Pay once with a card through Stripe.
-                Photos are kept for 180 days, or 2 years with an add-on.
+                Photos are kept for 180 days, or up to 2 years with an add-on.
               </li>
             </ul>
           </div>

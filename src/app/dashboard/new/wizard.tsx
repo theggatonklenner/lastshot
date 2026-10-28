@@ -11,8 +11,15 @@ import { Button, Notice, cx } from "@/components/ui";
 import { formatEventDate, formatDateTime } from "@/lib/format";
 import { eventTypeLabel } from "@/lib/rules";
 import { THEMES } from "@/lib/themes";
+import { ADDONS, PLANS, addonInfo, addonPrice, formatPrice, planInfo } from "@/lib/plans";
+import { PlanPrice } from "@/components/plan-price";
+import { startBundleCheckout } from "@/app/dashboard/events/[id]/upgrade/actions";
+import type { Addon, Plan } from "@/lib/database.types";
 
-const STEPS = ["Basics", "The roll", "Gallery", "Cover", "Review"] as const;
+const STEPS = ["Basics", "The roll", "Gallery", "Cover", "Plan", "Add-ons", "Review"] as const;
+const PLAN_STEP = 4;
+const ADDON_STEP = 5;
+const REVIEW_STEP = 6;
 
 export function Wizard() {
   const router = useRouter();
@@ -22,6 +29,13 @@ export function Wizard() {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Australia/Sydney",
   }));
   const [accessCode, setAccessCode] = useState("");
+  const [plan, setPlan] = useState<Plan>("free");
+  const [addons, setAddons] = useState<Addon[]>([]);
+  const lineItems = [
+    ...(plan !== "free" ? [{ label: `${planInfo(plan).name} plan`, cents: planInfo(plan).price }] : []),
+    ...addons.map((a) => ({ label: addonInfo(a).name, cents: addonPrice(a, { plan }) })),
+  ];
+  const total = lineItems.reduce((n, i) => n + i.cents, 0);
   const [eventId, setEventId] = useState<string | null>(null);
   const [savedCode, setSavedCode] = useState<string | null>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof EventInputType, string>>>({});
@@ -103,6 +117,12 @@ export function Wizard() {
         setMessage(res.error);
         return;
       }
+      if (total > 0) {
+        // Opens Stripe; on success Stripe sends them back to the event's plan page.
+        const pay = await startBundleCheckout(id, plan, addons);
+        if (pay?.error) router.push(`/dashboard/events/${id}/upgrade?checkout_error=1`);
+        return;
+      }
       router.push(`/dashboard/events/${id}/share?published=1`);
     });
   }
@@ -167,7 +187,9 @@ export function Wizard() {
             <CoverPicker eventId={eventId} initialUrl={null} accent={value.theme === "custom" ? value.accent_color : "#2546d8"} />
           </div>
         )}
-        {step === 4 && <Review value={value} hasCode={!!accessCode} />}
+        {step === PLAN_STEP && <PlanStep plan={plan} setPlan={setPlan} />}
+        {step === ADDON_STEP && <AddonStep plan={plan} addons={addons} setAddons={setAddons} />}
+        {step === REVIEW_STEP && <Review value={value} hasCode={!!accessCode} items={lineItems} total={total} />}
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-6">
           <div className="flex gap-2">
@@ -184,11 +206,11 @@ export function Wizard() {
           </div>
           {step < STEPS.length - 1 ? (
             <Button type="submit" pending={pending}>
-              {step === 3 ? "Continue to review" : "Continue"}
+              {step === ADDON_STEP ? "Continue to review" : "Continue"}
             </Button>
           ) : (
             <Button type="submit" pending={pending}>
-              Publish event
+              {total > 0 ? `Publish and pay ${formatPrice(total)}` : "Publish event"}
             </Button>
           )}
         </div>
@@ -206,7 +228,105 @@ export function Wizard() {
   );
 }
 
-function Review({ value, hasCode }: { value: EventInputType; hasCode: boolean }) {
+export function PlanStep({ plan, setPlan }: { plan: Plan; setPlan: (p: Plan) => void }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-graphite">
+        How many guests are coming? Pick a plan now, or start free and upgrade any time, even during the event.
+      </p>
+      <div className="grid gap-3 sm:grid-cols-2" role="radiogroup" aria-label="Plan">
+        {PLANS.map((p) => (
+          <button
+            key={p.id}
+            type="button"
+            role="radio"
+            aria-checked={plan === p.id}
+            onClick={() => setPlan(p.id)}
+            className={cx(
+              "flex flex-col gap-3 rounded-panel border bg-card p-4 text-left transition-colors",
+              plan === p.id ? "border-cobalt ring-2 ring-cobalt/25" : "border-line hover:border-ink/30",
+              p.id === "unlimited" && "sm:col-span-2",
+            )}
+          >
+            <span className="flex items-center justify-between gap-2">
+              <span className="text-lg font-bold">{p.name}</span>
+              <span
+                aria-hidden
+                className={cx("size-5 rounded-full border-2", plan === p.id ? "border-cobalt bg-cobalt shadow-[inset_0_0_0_3px_white]" : "border-line")}
+              />
+            </span>
+            <PlanPrice plan={p.id} />
+            <span className="font-semibold">{p.guests === null ? "Unlimited guests" : `Up to ${p.guests} guests`}</span>
+            <span className="text-sm text-graphite">
+              {p.id === "free" ? "Small Lastshot watermark on photos." : "No watermark."} {p.blurb}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function AddonStep({ plan, addons, setAddons }: { plan: Plan; addons: Addon[]; setAddons: (a: Addon[]) => void }) {
+  const toggle = (id: Addon) => {
+    if (addons.includes(id)) return setAddons(addons.filter((a) => a !== id));
+    // 1 year and 2 years of storage are either/or.
+    const other = id === "storage" ? "storage1y" : id === "storage1y" ? "storage" : null;
+    setAddons([...addons.filter((a) => a !== other), id]);
+  };
+  return (
+    <div className="flex flex-col gap-4">
+      <p className="text-graphite">Optional extras for this event. You can also add them later from the event&apos;s plan page.</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {ADDONS.map((a) => {
+          const on = addons.includes(a.id);
+          return (
+            <button
+              key={a.id}
+              type="button"
+              role="checkbox"
+              aria-checked={on}
+              onClick={() => toggle(a.id)}
+              className={cx(
+                "flex flex-col gap-2 rounded-panel border bg-card p-4 text-left transition-colors",
+                on ? "border-cobalt ring-2 ring-cobalt/25" : "border-line hover:border-ink/30",
+              )}
+            >
+              <span className="flex items-start justify-between gap-3">
+                <span className="font-bold">{a.name}</span>
+                <span className="flex shrink-0 items-center gap-2">
+                  <span className="display text-xl numeric">{formatPrice(addonPrice(a.id, { plan }))}</span>
+                  <span
+                    aria-hidden
+                    className={cx(
+                      "flex size-5 items-center justify-center rounded-[6px] border-2 text-xs text-white",
+                      on ? "border-cobalt bg-cobalt" : "border-line",
+                    )}
+                  >
+                    {on ? "✓" : ""}
+                  </span>
+                </span>
+              </span>
+              <span className="text-sm text-graphite">{a.blurb}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Review({
+  value,
+  hasCode,
+  items,
+  total,
+}: {
+  value: EventInputType;
+  hasCode: boolean;
+  items: { label: string; cents: number }[];
+  total: number;
+}) {
   const reveal =
     value.reveal_mode === "live"
       ? "Straight away"
@@ -236,13 +356,36 @@ function Review({ value, hasCode }: { value: EventInputType; hasCode: boolean })
       value.email_capture_enabled && value.gallery_visibility !== "private" ? "Guests can ask for an email" : "Off",
     ],
     ["Access code", hasCode ? "Required" : "None"],
-    ["Plan", "Free, up to 10 guests. Upgrade any time from the event page."],
   ];
   return (
     <div className="flex flex-col gap-4">
       <p className="text-graphite">
         Publishing creates the QR code and lets guests join. Everything here can still be changed afterwards.
       </p>
+      <div className="rounded-panel border border-line bg-card">
+        <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+          <span className="font-semibold">Your order</span>
+          <span className="display text-2xl numeric">{total ? formatPrice(total) : "$0"}</span>
+        </div>
+        <ul className="divide-y divide-line">
+          {items.length === 0 ? (
+            <li className="px-4 py-3 text-graphite">Free plan, up to 10 guests. Upgrade any time.</li>
+          ) : (
+            items.map((i) => (
+              <li key={i.label} className="flex justify-between gap-3 px-4 py-2.5">
+                <span>{i.label}</span>
+                <span className="numeric">{formatPrice(i.cents)}</span>
+              </li>
+            ))
+          )}
+        </ul>
+        {total > 0 && (
+          <p className="border-t border-line px-4 py-3 text-sm text-graphite">
+            AUD, paid once with a card through Stripe. Your event is published first, so it&apos;s saved even if you stop at
+            the payment page.
+          </p>
+        )}
+      </div>
       <dl className="divide-y divide-line rounded-panel border border-line bg-card">
         {rows.map(([k, v]) => (
           <div key={k} className="flex flex-col gap-0.5 px-4 py-3 sm:flex-row sm:justify-between sm:gap-6">

@@ -109,6 +109,12 @@ export const ADDONS: AddonInfo[] = [
     detail: "Great for businesses, schools and venues.",
   },
   {
+    id: "storage1y",
+    name: "Keep photos for 1 year",
+    blurb: "Photos stay for a year after the event instead of 180 days.",
+    detail: "You'll still get a reminder before they're deleted.",
+  },
+  {
     id: "storage",
     name: "Keep photos for 2 years",
     blurb: "Photos stay for 2 years after the event instead of 180 days.",
@@ -122,15 +128,22 @@ export const ADDONS: AddonInfo[] = [
   },
 ];
 
-/** Add-on price in AUD cents. SMS scales with the event's size. */
-export function addonPrice(addon: Addon, e: { plan: Plan }): number {
+type AddonFlags = { addon_frame: boolean; addon_branding: boolean; addon_storage: boolean; addon_storage_1y?: boolean; addon_sms: boolean };
+
+/**
+ * Add-on price in AUD cents. SMS scales with the event's size. Moving from
+ * 1 year to 2 years of storage costs the difference.
+ */
+export function addonPrice(addon: Addon, e: { plan: Plan; addon_storage_1y?: boolean }): number {
   switch (addon) {
     case "frame":
       return 1900;
     case "branding":
       return 2900;
+    case "storage1y":
+      return 1200;
     case "storage":
-      return 1900;
+      return e.addon_storage_1y ? 1900 - 1200 : 1900;
     case "sms":
       return e.plan === "unlimited" ? 5900 : e.plan === "big" ? 2900 : e.plan === "party" ? 1500 : 900;
   }
@@ -140,6 +153,25 @@ export function addonInfo(addon: Addon) {
   return ADDONS.find((a) => a.id === addon)!;
 }
 
-export function hasAddon(e: { addon_frame: boolean; addon_branding: boolean; addon_storage: boolean; addon_sms: boolean }, addon: Addon) {
-  return { frame: e.addon_frame, branding: e.addon_branding, storage: e.addon_storage, sms: e.addon_sms }[addon];
+export function hasAddon(e: AddonFlags, addon: Addon) {
+  return {
+    frame: e.addon_frame,
+    branding: e.addon_branding,
+    storage: e.addon_storage,
+    // 2 years covers 1 year.
+    storage1y: !!e.addon_storage_1y || e.addon_storage,
+    sms: e.addon_sms,
+  }[addon];
+}
+
+/** Short name for a payment line, e.g. "Party plan + Custom photo frame". */
+export function paymentLabel(p: { kind: string; plan: Plan | null; addon: Addon | null; addons?: Addon[] | null; extra_guests: number }) {
+  if (p.kind === "seats") return `${p.extra_guests} extra seats`;
+  if (p.kind === "addon" && p.addon) return addonInfo(p.addon).name;
+  if (p.kind === "bundle") {
+    return [p.plan ? `${planInfo(p.plan).name} plan` : null, ...(p.addons ?? []).map((a) => addonInfo(a).name)]
+      .filter(Boolean)
+      .join(" + ");
+  }
+  return `${planInfo(p.plan ?? "free").name} plan`;
 }

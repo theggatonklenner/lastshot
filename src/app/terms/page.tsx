@@ -87,7 +87,7 @@ const sections: { title: string; body: React.ReactNode }[] = [
     title: "How long photos are kept",
     body: (
       <p>
-        Photos are deleted automatically 180 days after an event ends, or 2 years if the organiser adds longer storage. The
+        Photos are deleted automatically 180 days after an event ends, or up to 2 years if the organiser adds longer storage. The
         organiser is emailed two weeks before. Organisers can delete photos or a whole event at any time. See the{" "}
         <Link href="/privacy" className="font-semibold text-cobalt hover:underline">privacy notice</Link> for details.
       </p>

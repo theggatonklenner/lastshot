@@ -56,6 +56,7 @@ export default async function SettingsPage({ params }: PageProps<"/dashboard/eve
             deleteAfter={retentionUntil(event)?.toISOString() ?? null}
             ended={event.status === "ended" || event.status === "archived"}
             extended={event.addon_storage}
+            oneYear={event.addon_storage_1y}
           />
         </div>
       </Panel>

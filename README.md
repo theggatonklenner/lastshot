@@ -60,6 +60,7 @@ Migrations live in `supabase/migrations` and have already been applied to the La
 10. `extra_seats`: extra seats bought on top of a plan
 11. `photo_watermarks`: marks photos that have watermarked copies
 12. `addons`: add-on flags and settings, add-on payments, 2-year retention, SMS sign-ups
+13. `storage_1y_and_bundles`: 1-year storage option, bundle payments
 
 `supabase/tests/db_rules.sql`, `db_admin_emails.sql` and `db_team_reports_retention.sql` exercise the rules (limits, retries, lifecycle, cross-organiser isolation, anon lock-out, path scoping, blocking, closed events, rate limiting). Paste it into the SQL editor; it ends with `ALL TESTS PASSED` and rolls itself back.
 
@@ -159,8 +160,12 @@ One-off extras per event, bought through Stripe from the plan page (`kind = 'add
 
 - **Custom photo frame** ($19): organisers set two lines of text and a colour (Settings > Add-ons). The guest's camera draws the border onto each shot (`drawFrame()` in `src/lib/client/develop.ts`), so it applies to photos taken after it's set up.
 - **Your branding** ($29): organisers upload a logo (`/api/events/<id>/logo`, re-encoded as PNG). Guest pages show it instead of the "Made with Lastshot" card, and the slideshow and printable signs use it.
-- **Keep photos for 2 years** ($19): `event_retention_until()` uses 730 days instead of 180. The old free "keep forever" switch is gone; `keep_photos` is admin-only.
+- **Keep photos for 1 year** ($12) or **2 years** ($19; $7 to extend from 1 year): `event_retention_until()` uses 365 or 730 days instead of 180. The old free "keep forever" switch is gone; `keep_photos` is admin-only.
 - **SMS alerts** ($9 to $59 by plan): guests leave a mobile number (`/api/e/<code>/sms`, `add_guest_phone()`), and when the gallery is ready they get one text with a private link, sent through ClickSend alongside the emails (`sendDueGallerySms()`). Texts are capped at the event's guest limit (1,000 on Unlimited). Text links work as gallery passes exactly like email links.
+
+### New-event setup
+
+The setup has seven steps: Basics, The roll, Gallery, Cover, Plan, Add-ons, Review. The event is saved as a draft from the first step. On Review, "Publish and pay" publishes the event first and then opens one Stripe Checkout for the plan and add-ons together (`startBundleCheckout()`, a `kind = 'bundle'` payment), so the event exists even if the organiser stops at the payment page.
 
 ### Watermarks
 

@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { requireOwnedEvent } from "@/lib/server/organiser";
 import { stripeConfigured, stripeTestMode } from "@/lib/server/stripe";
 import { confirmSession } from "@/lib/server/payments";
-import { ADDONS, PLANS, addonInfo, addonPrice, eventGuestLimit, formatPrice, hasAddon, planInfo, planRank, upgradePrice } from "@/lib/plans";
+import { ADDONS, PLANS, addonInfo, addonPrice, eventGuestLimit, formatPrice, hasAddon, paymentLabel, planInfo, planRank, upgradePrice } from "@/lib/plans";
 import { retentionUntil } from "@/lib/rules";
 import type { Addon } from "@/lib/database.types";
 import { formatDateTime } from "@/lib/format";
@@ -38,7 +38,7 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
     supabase.rpc("event_stats", { p_event_ids: [id] }),
     supabase
       .from("payments")
-      .select("id, kind, plan, addon, extra_guests, amount_cents, status, paid_at, created_at")
+      .select("id, kind, plan, addon, addons, extra_guests, amount_cents, status, paid_at, created_at")
       .eq("event_id", id)
       .eq("status", "paid")
       .order("paid_at", { ascending: false }),
@@ -54,6 +54,8 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
         <Notice tone="success">
           {sp.paid === "seats"
             ? `Payment received. Up to ${limit} guests can now join. A receipt is on its way to your email.`
+            : sp.paid === "bundle"
+            ? "Payment received. Your plan and add-ons are on. A receipt is on its way to your email."
             : sp.paid === "addon" && typeof sp.addon === "string" && ADDONS.some((a) => a.id === sp.addon)
             ? `Payment received. ${addonInfo(sp.addon as Addon).name} is now on for this event. A receipt is on its way to your email.`
             : `Payment received. This event is now on the ${current.name} plan. A receipt is on its way to your email.`}
@@ -65,7 +67,29 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
           changed after a few minutes, email support@lastshot.app.
         </Notice>
       )}
-      {sp.cancelled && <Notice tone="info">Payment cancelled. Nothing was charged.</Notice>}
+      {sp.from === "new" && event.status !== "draft" && (
+        <Notice
+          tone="success"
+          action={
+            <Link href={`/dashboard/events/${event.id}/share?published=1`} className="font-semibold underline">
+              Get the QR code
+            </Link>
+          }
+        >
+          Your event is published. Next, print the sign or share the link.
+        </Notice>
+      )}
+      {sp.checkout_error && (
+        <Notice tone="warn">
+          Your event is published on the Free plan, but the payment page couldn&apos;t open. Choose your plan and add-ons
+          below to try again.
+        </Notice>
+      )}
+      {sp.cancelled && (
+        <Notice tone="info">
+          Payment cancelled. Nothing was charged{sp.from === "new" ? ", and your event is on the Free plan for now" : ""}.
+        </Notice>
+      )}
       {!ready && <Notice tone="warn">Payments aren&apos;t switched on yet, so upgrades are unavailable for now.</Notice>}
       {ready && stripeTestMode() && (
         <Notice tone="warn">Test mode: pay with card 4242 4242 4242 4242, any future date and any CVC.</Notice>
@@ -152,9 +176,9 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
           <p className="text-graphite">One-off extras for this event. They work on any plan.</p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          {ADDONS.map((a) => {
+          {ADDONS.filter((a) => !(a.id === "storage1y" && event.addon_storage)).map((a) => {
             const owned = hasAddon(event, a.id);
-            const keepUntil = a.id === "storage" ? retentionUntil(event) : null;
+            const keepUntil = a.id === "storage" || a.id === "storage1y" ? retentionUntil(event) : null;
             return (
               <Panel key={a.id} className={cx("flex flex-col gap-3", owned && "ring-2 ring-ok")}>
                 <div className="flex items-start justify-between gap-3">
@@ -173,9 +197,11 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
                       <Link href={`/dashboard/events/${event.id}/settings#addons`} className="font-semibold text-cobalt hover:underline">
                         {a.id === "frame" ? "Set up the frame" : "Upload your logo"}
                       </Link>
-                    ) : a.id === "storage" ? (
+                    ) : a.id === "storage" || a.id === "storage1y" ? (
                       <p className="text-sm font-semibold text-ok">
-                        {keepUntil ? `Photos kept until ${formatDateTime(keepUntil.toISOString())}.` : "Photos kept for 2 years after the event."}
+                        {keepUntil
+                          ? `Photos kept until ${formatDateTime(keepUntil.toISOString())}.`
+                          : `Photos kept for ${a.id === "storage" ? "2 years" : "1 year"} after the event.`}
                       </p>
                     ) : (
                       <p className="text-sm font-semibold text-ok">Guests can now leave a mobile number for a text.</p>
@@ -184,7 +210,11 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
                     <AddonButton
                       eventId={event.id}
                       addon={a.id}
-                      label={`Add for ${formatPrice(addonPrice(a.id, event))}`}
+                      label={
+                        a.id === "storage" && event.addon_storage_1y
+                          ? `Extend for ${formatPrice(addonPrice(a.id, event))}`
+                          : `Add for ${formatPrice(addonPrice(a.id, event))}`
+                      }
                       disabled={!ready || !!event.suspended_at}
                     />
                   )}
@@ -202,11 +232,7 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
             {payments.map((p) => (
               <li key={p.id} className="flex justify-between gap-4 py-2.5 text-[15px]">
                 <span>
-                  {p.kind === "seats"
-                    ? `${p.extra_guests} extra seats`
-                    : p.kind === "addon" && p.addon
-                      ? addonInfo(p.addon).name
-                      : `${planInfo(p.plan ?? "free").name} plan`}
+                  {paymentLabel(p)}
                   <span className="block text-sm text-graphite">{formatDateTime(p.paid_at ?? p.created_at)}</span>
                 </span>
                 <span className="font-semibold numeric">{formatPrice(p.amount_cents)}</span>

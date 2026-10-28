@@ -56,10 +56,14 @@ export type CheckoutSession = {
   metadata?: Record<string, string>;
 };
 
+export type CheckoutItem = { amountCents: number; name: string; description?: string };
+
 export function createCheckoutSession(p: {
-  amountCents: number;
-  productName: string;
+  /** One line item (amountCents/productName/description) or several (items). */
+  amountCents?: number;
+  productName?: string;
   description: string;
+  items?: CheckoutItem[];
   email: string;
   successUrl: string;
   cancelUrl: string;
@@ -76,16 +80,16 @@ export function createCheckoutSession(p: {
       cancel_url: p.cancelUrl,
       metadata: p.metadata,
       payment_intent_data: { metadata: p.metadata, description: p.description },
-      line_items: [
-        {
+      line_items: (p.items ?? [{ amountCents: p.amountCents ?? 0, name: p.productName ?? "Lastshot", description: p.description }]).map(
+        (it) => ({
           quantity: 1,
           price_data: {
             currency: "aud",
-            unit_amount: p.amountCents,
-            product_data: { name: p.productName, description: p.description },
+            unit_amount: it.amountCents,
+            product_data: { name: it.name.slice(0, 120), ...(it.description ? { description: it.description } : {}) },
           },
-        },
-      ],
+        }),
+      ),
       allow_promotion_codes: "true",
       invoice_creation: { enabled: "true" },
     },

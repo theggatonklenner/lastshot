@@ -6,6 +6,7 @@ import { z } from "zod";
 import { admin } from "@/lib/supabase/admin";
 import { assertAdmin } from "@/lib/server/admin-auth";
 import { removeObjects } from "@/lib/server/media";
+import { deleteAccountCompletely, deleteEventsCompletely } from "@/lib/server/cleanup";
 import { sendDueGalleryEmails } from "@/lib/server/gallery-emails";
 import { emailConfigured, galleryReadyEmail, sendBatch } from "@/lib/server/email";
 import { siteUrl } from "@/lib/env";
@@ -17,20 +18,6 @@ function fail(e: unknown): { ok: false; error: string } {
 }
 
 const uuid = z.uuid();
-
-async function deleteEventFiles(eventIds: string[]) {
-  if (!eventIds.length) return;
-  const db = admin();
-  const { data: photos } = await db
-    .from("photos")
-    .select("storage_path, display_path, thumbnail_path")
-    .in("event_id", eventIds);
-  const { data: events } = await db.from("events").select("cover_image_path").in("id", eventIds);
-  return [
-    ...(events ?? []).map((e) => e.cover_image_path),
-    ...(photos ?? []).flatMap((p) => [p.storage_path, p.display_path, p.thumbnail_path]),
-  ];
-}
 
 export async function suspendEvent(eventId: string, reason: string): Promise<Result> {
   try {
@@ -68,10 +55,7 @@ export async function adminDeleteEvent(eventId: string, confirmCode: string): Pr
     const { data: event } = await admin().from("events").select("code").eq("id", eventId).maybeSingle();
     if (!event) throw new Error("Event not found.");
     if (confirmCode.trim() !== event.code) throw new Error("Type the event code exactly to confirm.");
-    const files = await deleteEventFiles([eventId]);
-    const { error } = await admin().from("events").delete().eq("id", eventId);
-    if (error) throw new Error(error.message);
-    await removeObjects(files ?? []).catch((e) => console.error("orphaned files", e));
+    await deleteEventsCompletely([eventId]);
   } catch (e) {
     return fail(e);
   }
@@ -127,16 +111,7 @@ export async function deleteOrganiser(userId: string, confirmEmail: string): Pro
     if (confirmEmail.trim().toLowerCase() !== profile.email.toLowerCase()) {
       throw new Error("Type the organiser's email exactly to confirm.");
     }
-    const { data: events } = await db.from("events").select("id").eq("owner_id", userId);
-    const ids = (events ?? []).map((e) => e.id);
-    const files = await deleteEventFiles(ids);
-    if (ids.length) {
-      const { error } = await db.from("events").delete().in("id", ids);
-      if (error) throw new Error(error.message);
-    }
-    const { error: authError } = await db.auth.admin.deleteUser(userId);
-    if (authError) throw new Error(authError.message);
-    await removeObjects(files ?? []).catch((e) => console.error("orphaned files", e));
+    await deleteAccountCompletely(userId);
     revalidatePath("/admin", "layout");
     return { ok: true };
   } catch (e) {
@@ -191,6 +166,17 @@ export async function sendTestEmail(): Promise<Result<{ to: string }>> {
     );
     if (!res.ok) throw new Error(res.error);
     return { ok: true, data: { to: user.email } };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function resolveError(id: string): Promise<Result> {
+  try {
+    await assertAdmin();
+    await admin().from("app_errors").update({ resolved_at: new Date().toISOString() }).eq("id", z.uuid().parse(id));
+    revalidatePath("/admin/errors");
+    return { ok: true };
   } catch (e) {
     return fail(e);
   }

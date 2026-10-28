@@ -13,6 +13,9 @@ export const publicEnv = {
   ),
 };
 
+/** Public contact address shown in the terms and privacy notice. */
+export const CONTACT_EMAIL = "support@lastshot.app";
+
 /** The public home of the app. QR codes, share links and emails all point here. */
 export const PRODUCTION_URL = "https://lastshot.app";
 

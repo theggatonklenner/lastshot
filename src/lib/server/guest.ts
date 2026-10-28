@@ -143,3 +143,10 @@ export async function getEventAndGuest(code: string): Promise<{ event: EventReco
   const guest = event ? ((guestRes.data ?? []).find((g) => g.event_id === event.id) ?? null) : null;
   return { event, guest };
 }
+
+/** The raw view-pass token from a "photos are ready" email link, if saved. */
+export async function readViewPassToken(code: string): Promise<string | null> {
+  const jar = await cookies();
+  const token = jar.get(viewPassCookieName(code))?.value;
+  return token && TOKEN_RE.test(token) ? token : null;
+}

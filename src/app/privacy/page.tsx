@@ -44,8 +44,9 @@ const sections: { title: string; body: React.ReactNode }[] = [
     body: (
       <>
         <p>
-          Photos and guest records stay until the organiser deletes them or deletes the event. Deleting an event removes
-          every photo and guest record for it straight away. Rate-limit records are deleted after a day.
+          Photos, guest records and email addresses are deleted automatically 180 days after an event ends, unless the
+          organiser chooses to keep them (they&apos;re emailed two weeks before). Organisers can delete photos or a whole
+          event sooner, which removes everything for it straight away. Rate-limit records are deleted after a day.
         </p>
         <p>
           Our database provider may keep encrypted backups for a limited period (up to 7 days on most plans). Deleted
@@ -58,8 +59,9 @@ const sections: { title: string; body: React.ReactNode }[] = [
     title: "Your choices",
     body: (
       <p>
-        If you&apos;re in a photo and want it removed, ask the organiser of the event. They can delete any photo. Organisers
-        can delete their account data by deleting their events and contacting us to remove the account.
+        If you&apos;re in a photo and want it removed, use the Report button on the photo or ask the organiser of the event,
+        who can delete any photo. Organisers can delete their account and all their events from Account settings. For
+        anything else, email <a href="mailto:support@lastshot.app" className="font-semibold text-cobalt hover:underline">support@lastshot.app</a>.
       </p>
     ),
   },

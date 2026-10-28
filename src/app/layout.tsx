@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "@fontsource-variable/archivo/standard.css";
 import "./globals.css";
 import { siteUrl } from "@/lib/env";
+import { ErrorListener } from "@/components/error-listener";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
@@ -24,7 +25,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en-AU">
-      <body className="min-h-dvh">{children}</body>
+      <body className="min-h-dvh">
+        <ErrorListener />
+        {children}
+      </body>
     </html>
   );
 }

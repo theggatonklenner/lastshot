@@ -32,7 +32,15 @@ function toInput(e: EventRecord): EventInputType {
   };
 }
 
-export function SettingsForm({ event, coverUrl }: { event: EventRecord; coverUrl: string | null }) {
+export function SettingsForm({
+  event,
+  coverUrl,
+  isOwner,
+}: {
+  event: EventRecord;
+  coverUrl: string | null;
+  isOwner: boolean;
+}) {
   const [value, setValue] = useState<EventInputType>(() => toInput(event));
   const [accessCode, setAccessCode] = useState("");
   const [message, setMessage] = useState<{ tone: "error" | "success"; text: string } | null>(null);
@@ -118,6 +126,7 @@ export function SettingsForm({ event, coverUrl }: { event: EventRecord; coverUrl
         </div>
       </form>
 
+      {isOwner && (
       <Panel className="border-signal/40">
         <h2 className="mb-1 text-xl font-bold text-signal">Delete event</h2>
         <p className="mb-5 text-graphite">
@@ -143,6 +152,7 @@ export function SettingsForm({ event, coverUrl }: { event: EventRecord; coverUrl
           </Button>
         </form>
       </Panel>
+      )}
     </div>
   );
 }

@@ -62,6 +62,21 @@ export function readyForEmail(
   );
 }
 
+export const RETENTION_DAYS = 180;
+
+/** Mirrors SQL event_retention_until(): when photos will be deleted, or null if kept. */
+export function retentionUntil(
+  e: Pick<EventRecord, "keep_photos" | "ended_at" | "event_date" | "created_at">,
+): Date | null {
+  if (e.keep_photos) return null;
+  const base = e.ended_at
+    ? new Date(e.ended_at)
+    : e.event_date
+      ? new Date(`${e.event_date}T00:00:00Z`).getTime() + 86_400_000
+      : new Date(e.created_at);
+  return new Date(new Date(base).getTime() + RETENTION_DAYS * 86_400_000);
+}
+
 export const EVENT_TYPES: { value: EventType; label: string }[] = [
   { value: "wedding", label: "Wedding" },
   { value: "birthday", label: "Birthday" },
@@ -91,4 +106,9 @@ export function remainingShots(limit: number, used: number): number {
 /** "08" style counter text. */
 export function counterText(n: number): string {
   return String(Math.max(0, n)).padStart(2, "0");
+}
+
+/** True when an ISO timestamp is in the past. */
+export function isPast(iso: string, now = new Date()): boolean {
+  return new Date(iso).getTime() < now.getTime();
 }

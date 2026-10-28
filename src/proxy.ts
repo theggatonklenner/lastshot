@@ -32,8 +32,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
   if (data.user && (path === "/login" || path === "/signup")) {
+    const next = request.nextUrl.searchParams.get("next") ?? "";
+    const safe = ["/dashboard", "/admin", "/invite/"].some((p) => next.startsWith(p)) && !next.startsWith("//");
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = safe ? next : "/dashboard";
     url.search = "";
     return NextResponse.redirect(url);
   }

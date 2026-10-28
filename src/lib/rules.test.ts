@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acceptingSubmissions, counterText, galleryAccess, galleryRevealed, readyForEmail, remainingShots } from "./rules";
+import { acceptingSubmissions, counterText, galleryAccess, galleryRevealed, readyForEmail, remainingShots, retentionUntil } from "./rules";
 
 const base = {
   status: "active" as const,
@@ -101,5 +101,19 @@ describe("readyForEmail", () => {
   it("private or suspended never send", () => {
     expect(readyForEmail({ ...base, status: "ended", gallery_visibility: "private" })).toBe(false);
     expect(readyForEmail({ ...base, status: "ended", suspended_at: "2026-01-01T00:00:00Z" })).toBe(false);
+  });
+});
+
+describe("retentionUntil", () => {
+  const e = { keep_photos: false, ended_at: null, event_date: null, created_at: "2026-01-01T00:00:00Z" };
+  it("is 180 days after the event ends", () => {
+    expect(retentionUntil({ ...e, ended_at: "2026-02-01T00:00:00Z" })?.toISOString()).toBe("2026-07-31T00:00:00.000Z");
+  });
+  it("falls back to the day after the event date, then creation", () => {
+    expect(retentionUntil({ ...e, event_date: "2026-03-01" })?.toISOString()).toBe("2026-08-29T00:00:00.000Z");
+    expect(retentionUntil(e)?.toISOString()).toBe("2026-06-30T00:00:00.000Z");
+  });
+  it("is null when the organiser keeps the photos", () => {
+    expect(retentionUntil({ ...e, keep_photos: true })).toBeNull();
   });
 });

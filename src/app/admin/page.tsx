@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/server/admin-auth";
+import { admin } from "@/lib/supabase/admin";
 import { emailConfigured } from "@/lib/server/email";
 import { formatDateTime } from "@/lib/format";
 import { Notice, Panel, StatusPill } from "@/components/ui";
@@ -37,6 +38,10 @@ export default async function AdminOverview() {
     supabase.rpc("admin_events", { p_search: null, p_status: null, p_limit: 8, p_offset: 0 }),
   ]);
   const o = data as unknown as Overview;
+  const { count: openErrors } = await admin()
+    .from("app_errors")
+    .select("id", { count: "exact", head: true })
+    .is("resolved_at", null);
 
   const statuses = ["draft", "published", "active", "ended", "archived"];
 
@@ -47,6 +52,11 @@ export default async function AdminOverview() {
       {!emailConfigured() && (
         <Notice tone="warn">
           Email sending isn&apos;t configured. Add RESEND_API_KEY and EMAIL_FROM in Vercel so guests get their gallery links.
+        </Notice>
+      )}
+      {!!openErrors && (
+        <Notice tone="error" action={<Link href="/admin/errors" className="font-semibold underline">Review</Link>}>
+          {openErrors} unresolved {openErrors === 1 ? "error" : "errors"}.
         </Notice>
       )}
       {o.emails_failed > 0 && (

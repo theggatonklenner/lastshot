@@ -2,33 +2,13 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import QRCode from "qrcode";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { SIGN_DESIGNS, buildSign, type SignDesign } from "@/lib/client/signs";
 import { saveBlob } from "@/lib/client/zip";
-import { Button, LinkButton, Panel } from "@/components/ui";
+import { Button, LinkButton, Panel, cx } from "@/components/ui";
 import { CopyButton } from "@/components/copy-button";
 
 function slug(s: string) {
   return s.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").slice(0, 60) || "event";
-}
-
-/** Standard PDF fonts only cover Latin-1, so drop anything else (emoji etc). */
-function pdfSafe(s: string) {
-  return s.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/[\u2013\u2014]/g, "-").replace(/[^\x20-\x7E\xA0-\xFF]/g, "");
-}
-
-/** Splits text into lines that fit a width, for the PDF sign. */
-function wrap(text: string, maxChars: number): string[] {
-  const words = text.split(/\s+/);
-  const lines: string[] = [];
-  let line = "";
-  for (const w of words) {
-    if ((line + " " + w).trim().length > maxChars) {
-      if (line) lines.push(line);
-      line = w;
-    } else line = (line + " " + w).trim();
-  }
-  if (line) lines.push(line);
-  return lines;
 }
 
 export function ShareTools({
@@ -51,6 +31,7 @@ export function ShareTools({
     () => false,
   );
   const [busy, setBusy] = useState(false);
+  const [design, setDesign] = useState<SignDesign>("poster");
 
   useEffect(() => {
     QRCode.toDataURL(url, { width: 1200, margin: 2, errorCorrectionLevel: "M", color: { dark: "#16171a", light: "#ffffff" } }).then(setQr);
@@ -66,47 +47,8 @@ export function ShareTools({
     if (!qr) return;
     setBusy(true);
     try {
-      const pdf = await PDFDocument.create();
-      pdf.setTitle(`${pdfSafe(title)} camera sign`);
-      const page = pdf.addPage([595.28, 841.89]); // A4
-      const { width, height } = page.getSize();
-      const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-      const regular = await pdf.embedFont(StandardFonts.Helvetica);
-      const ink = rgb(0.086, 0.09, 0.102);
-      const cobalt = rgb(0.145, 0.275, 0.847);
-
-      page.drawRectangle({ x: 0, y: height - 150, width, height: 150, color: cobalt });
-      page.drawText("Take a photo for us", { x: 48, y: height - 92, size: 36, font: bold, color: rgb(1, 1, 1) });
-      page.drawText(`Scan the code to grab a camera. You get ${shots} shots.`, {
-        x: 48,
-        y: height - 124,
-        size: 15,
-        font: regular,
-        color: rgb(1, 1, 1),
-      });
-
-      let y = height - 210;
-      for (const line of wrap(pdfSafe(title), 30).slice(0, 2)) {
-        page.drawText(line, { x: 48, y, size: 28, font: bold, color: ink });
-        y -= 34;
-      }
-      if (dateLine) {
-        page.drawText(pdfSafe(dateLine), { x: 48, y: y + 4, size: 13, font: regular, color: ink });
-      }
-
-      const png = await pdf.embedPng(qr);
-      const size = 330;
-      page.drawImage(png, { x: (width - size) / 2, y: 190, width: size, height: size });
-
-      const steps = ["Open your phone camera and point it at the code", "Tap the link, then tap Start camera", "Make every shot count"];
-      steps.forEach((s, i) => {
-        page.drawText(`${i + 1}.  ${s}`, { x: 70, y: 150 - i * 24, size: 13, font: i === 2 ? bold : regular, color: ink });
-      });
-      page.drawText(url, { x: 48, y: 48, size: 10, font: regular, color: rgb(0.34, 0.35, 0.38) });
-      page.drawText("lastshot", { x: width - 48 - bold.widthOfTextAtSize("lastshot", 14), y: 46, size: 14, font: bold, color: cobalt });
-
-      const bytes = await pdf.save();
-      saveBlob(new Blob([bytes as BlobPart], { type: "application/pdf" }), `${slug(title)}-sign.pdf`);
+      const bytes = await buildSign(design, { title, dateLine, shots, url, qrPng: qr });
+      saveBlob(new Blob([bytes as BlobPart], { type: "application/pdf" }), `${slug(title)}-${design}.pdf`);
     } finally {
       setBusy(false);
     }
@@ -124,10 +66,31 @@ export function ShareTools({
           )}
         </div>
         <p className="text-center text-[15px] break-all text-graphite">{url}</p>
-        <div className="flex flex-wrap justify-center gap-2">
-          <Button size="sm" onClick={downloadPdf} pending={busy} disabled={!qr}>
-            Download printable sign
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-2 font-semibold">Printable sign</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {SIGN_DESIGNS.map((d) => (
+              <label
+                key={d.id}
+                className={cx(
+                  "flex cursor-pointer gap-3 rounded-control border bg-card p-2.5 transition-colors",
+                  design === d.id ? "border-cobalt ring-2 ring-cobalt/20" : "border-line hover:border-ink/30",
+                )}
+              >
+                <input type="radio" name="sign" className="sr-only" checked={design === d.id} onChange={() => setDesign(d.id)} />
+                <SignThumb design={d.id} />
+                <span className="flex min-w-0 flex-col">
+                  <span className="font-semibold">{d.name}</span>
+                  <span className="text-sm leading-snug text-graphite">{d.description}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <Button onClick={downloadPdf} pending={busy} disabled={!qr} className="mt-1 self-start">
+            Download {SIGN_DESIGNS.find((d) => d.id === design)!.name.toLowerCase()} (PDF)
           </Button>
+        </fieldset>
+        <div className="flex flex-wrap justify-center gap-2 border-t border-line pt-4">
           <Button size="sm" variant="secondary" onClick={downloadPng} disabled={!qr}>
             Download QR image
           </Button>
@@ -143,5 +106,45 @@ export function ShareTools({
         </div>
       </div>
     </Panel>
+  );
+}
+
+/** Tiny schematic of each sign so organisers can tell them apart. */
+function SignThumb({ design }: { design: SignDesign }) {
+  const qr = <span className="block size-5 rounded-[2px] bg-[repeating-conic-gradient(#16171a_0_25%,#fff_0_50%)] bg-[length:6px_6px]" />;
+  if (design === "cards") {
+    return (
+      <span className="grid h-14 w-10 shrink-0 grid-cols-2 gap-px rounded-[3px] border border-line bg-line">
+        {[0, 1, 2, 3].map((i) => (
+          <span key={i} className="flex flex-col items-center justify-center gap-0.5 bg-white">
+            <span className="h-1 w-3 bg-cobalt" />
+            <span className="block size-2.5 bg-[repeating-conic-gradient(#16171a_0_25%,#fff_0_50%)] bg-[length:3px_3px]" />
+          </span>
+        ))}
+      </span>
+    );
+  }
+  if (design === "tent") {
+    return (
+      <span className="flex h-14 w-10 shrink-0 flex-col rounded-[3px] border border-line bg-white">
+        <span className="flex flex-1 rotate-180 flex-col items-center justify-center gap-0.5">
+          <span className="h-1 w-6 bg-cobalt" />
+          <span className="block size-3 bg-[repeating-conic-gradient(#16171a_0_25%,#fff_0_50%)] bg-[length:4px_4px]" />
+        </span>
+        <span className="border-t border-dashed border-graphite/50" />
+        <span className="flex flex-1 flex-col items-center justify-center gap-0.5">
+          <span className="h-1 w-6 bg-cobalt" />
+          <span className="block size-3 bg-[repeating-conic-gradient(#16171a_0_25%,#fff_0_50%)] bg-[length:4px_4px]" />
+        </span>
+      </span>
+    );
+  }
+  const night = design === "night";
+  return (
+    <span className={cx("flex h-14 w-10 shrink-0 flex-col items-center gap-1 overflow-hidden rounded-[3px] border border-line", night ? "bg-body" : "bg-white")}>
+      <span className={cx("h-3 w-full", night ? "bg-body" : "bg-cobalt")} />
+      <span className={cx("h-1 w-6", night ? "bg-flash" : "bg-ink")} />
+      <span className="rounded-[2px] bg-white p-0.5">{qr}</span>
+    </span>
   );
 }

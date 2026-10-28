@@ -50,8 +50,9 @@ Migrations live in `supabase/migrations` and have already been applied to the La
 4. `admin_and_guest_emails`: site admins, suspension, guest email capture and claiming
 5. `admin_views`: admin-only read functions
 6. `email_scheduler`: pg_cron job that triggers the email sender
+7. `reports_retention_team_errors`: co-organisers, photo reports, auto-clean, error log
 
-`supabase/tests/db_rules.sql` and `supabase/tests/db_admin_emails.sql` exercise the rules (limits, retries, lifecycle, cross-organiser isolation, anon lock-out, path scoping, blocking, closed events, rate limiting). Paste it into the SQL editor; it ends with `ALL TESTS PASSED` and rolls itself back.
+`supabase/tests/db_rules.sql`, `db_admin_emails.sql` and `db_team_reports_retention.sql` exercise the rules (limits, retries, lifecycle, cross-organiser isolation, anon lock-out, path scoping, blocking, closed events, rate limiting). Paste it into the SQL editor; it ends with `ALL TESTS PASSED` and rolls itself back.
 
 Unit tests for the reveal and access rules: `npm test`.
 
@@ -116,6 +117,22 @@ To point the scheduler at your app, add a Vault secret named `lastshot_cron_url`
 - Emails: setup checks, failures with errors, run the sender, retry failed
 
 Suspension stops guests joining, shooting and viewing, and can only be lifted by an admin.
+
+### Co-organisers
+
+The creator of an event can invite co-organisers by email (Settings tab, Team). Invites last 14 days and only work for an account with the invited address. Co-organisers can do everything except delete the event or change the team. Access is enforced in Postgres: every organiser policy uses `is_event_organiser(event_id)`.
+
+### Photo reports
+
+Anyone who can see a gallery can report a photo. The photo is flagged and the creator is emailed (at most every 15 minutes per event). Three separate reports hide the photo until it's reviewed. Approving a photo or clearing its flag closes its reports.
+
+### Auto-clean
+
+Photos are deleted 180 days after an event ends (drafts that were never published: 180 days after creation), unless the organiser turns on "Keep photos after 180 days". The creator is emailed two weeks before. A daily `pg_cron` job (`lastshot-cleanup`) calls `/api/cron/cleanup` (Vault secret `lastshot_cleanup_url`).
+
+### Error alerts
+
+Server errors (`src/instrumentation.ts`) and browser errors (`/api/client-error`) are logged in `app_errors`, grouped by fingerprint, and shown at `/admin/errors`. Site admins (and `ALERT_EMAIL`, if set) are emailed the first time an error appears and again if it recurs after a quiet hour.
 
 ## Data retention and backups
 

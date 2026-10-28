@@ -2,10 +2,12 @@
 
 import { useEffect } from "react";
 import { Button, Logo } from "@/components/ui";
+import { reportClientError } from "@/lib/client/report-error";
 
 export default function ErrorPage({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   useEffect(() => {
     console.error(error);
+    reportClientError(error, { digest: error.digest });
   }, [error]);
   return (
     <main className="mx-auto flex min-h-dvh max-w-xl flex-col items-start justify-center gap-5 px-5">

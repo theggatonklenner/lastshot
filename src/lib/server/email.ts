@@ -105,3 +105,18 @@ You asked to be emailed when these photos were ready. This is the only email we'
 Unsubscribe: ${p.unsubscribeUrl}`;
   return { subject, html, text };
 }
+
+/** Short plain email to an organiser. */
+export function organiserNoticeEmail(p: { heading: string; lines: string[]; buttonLabel: string; buttonUrl: string }) {
+  const body = p.lines.map((l) => `<p style="margin:0 0 14px;font-size:16px;line-height:1.5;color:#16171a">${esc(l)}</p>`).join("");
+  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${esc(p.heading)}</title></head>
+<body style="margin:0;padding:24px 12px;background:#f3f4f0;font-family:Arial,Helvetica,sans-serif">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border:1px solid #d7d9d1;border-radius:16px">
+<tr><td style="padding:24px 28px 8px"><p style="margin:0 0 16px;font-size:18px;font-weight:bold;color:#2546d8">lastshot</p>
+<h1 style="margin:0 0 16px;font-size:24px;line-height:1.2;color:#16171a">${esc(p.heading)}</h1>${body}</td></tr>
+<tr><td style="padding:4px 28px 28px"><a href="${esc(p.buttonUrl)}" style="display:inline-block;background:#2546d8;color:#ffffff;text-decoration:none;font-weight:bold;padding:13px 22px;border-radius:10px">${esc(p.buttonLabel)}</a></td></tr>
+</table></td></tr></table></body></html>`;
+  const text = `${p.heading}\n\n${p.lines.join("\n\n")}\n\n${p.buttonLabel}: ${p.buttonUrl}`;
+  return { subject: p.heading, html, text };
+}

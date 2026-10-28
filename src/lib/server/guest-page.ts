@@ -1,4 +1,5 @@
 import "server-only";
+import { isEventOrganiser } from "@/lib/server/organiser";
 import { getUser } from "@/lib/supabase/server";
 import { getEventByCode, getGuestForEvent, hasViewPass } from "@/lib/server/guest";
 import { signOne } from "@/lib/server/media";
@@ -9,7 +10,8 @@ export async function loadGuestContext(code: string) {
   const event = await getEventByCode(code);
   if (!event) return null;
   const [{ user }, guest, pass] = await Promise.all([getUser(), getGuestForEvent(event, code), hasViewPass(event, code)]);
-  const isOwner = !!user && user.id === event.owner_id;
+  // Organisers (owner or co-organiser) can always preview and see everything.
+  const isOwner = await isEventOrganiser(event, user?.id);
   if (event.status === "draft" && !isOwner) return null;
   const isGuest = (!!guest && !guest.blocked) || pass;
   const access = galleryAccess(event, { isOwner, isGuest });

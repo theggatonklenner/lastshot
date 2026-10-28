@@ -5,7 +5,17 @@ import { useActionState } from "react";
 import { signIn, signUp, type AuthState } from "@/app/auth/actions";
 import { Button, Field, Input, Notice } from "@/components/ui";
 
-export function AuthForm({ mode, next, linkError }: { mode: "login" | "signup"; next?: string; linkError?: boolean }) {
+export function AuthForm({
+  mode,
+  next,
+  linkError,
+  defaultEmail,
+}: {
+  mode: "login" | "signup";
+  next?: string;
+  linkError?: boolean;
+  defaultEmail?: string;
+}) {
   const [state, action, pending] = useActionState<AuthState, FormData>(mode === "login" ? signIn : signUp, undefined);
   const isLogin = mode === "login";
 
@@ -40,11 +50,23 @@ export function AuthForm({ mode, next, linkError }: { mode: "login" | "signup"; 
           type="email"
           autoComplete="email"
           required
-          defaultValue={state?.email}
+          defaultValue={state?.email ?? defaultEmail}
           inputMode="email"
         />
       </Field>
-      <Field label="Password" htmlFor="password" hint={isLogin ? undefined : "At least 8 characters."}>
+      <Field
+        label="Password"
+        htmlFor="password"
+        hint={
+          isLogin ? (
+            <Link href="/forgot-password" className="font-semibold text-cobalt hover:underline">
+              Forgot password?
+            </Link>
+          ) : (
+            "At least 8 characters."
+          )
+        }
+      >
         <Input
           id="password"
           name="password"
@@ -57,6 +79,19 @@ export function AuthForm({ mode, next, linkError }: { mode: "login" | "signup"; 
       <Button type="submit" size="lg" pending={pending}>
         {isLogin ? "Sign in" : "Create account"}
       </Button>
+      {!isLogin && (
+        <p className="text-sm text-graphite">
+          By creating an account you agree to the{" "}
+          <Link href="/terms" className="font-semibold text-cobalt hover:underline" target="_blank">
+            terms of use
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" className="font-semibold text-cobalt hover:underline" target="_blank">
+            privacy notice
+          </Link>
+          .
+        </p>
+      )}
       <p className="text-[15px] text-graphite">
         {isLogin ? (
           <>

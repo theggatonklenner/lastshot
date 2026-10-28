@@ -20,9 +20,14 @@ export function GuestShell({ children, cover, accent }: { children: ReactNode; c
         <Link href="/" aria-label="Lastshot home">
           <Logo tone="cream" className="scale-90 origin-left" />
         </Link>
-        <Link href="/privacy" className="underline-offset-4 hover:underline">
-          Privacy
-        </Link>
+        <span className="flex gap-4">
+          <Link href="/terms" className="underline-offset-4 hover:underline">
+            Terms
+          </Link>
+          <Link href="/privacy" className="underline-offset-4 hover:underline">
+            Privacy
+          </Link>
+        </span>
       </footer>
     </div>
   );

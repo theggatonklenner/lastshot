@@ -43,6 +43,8 @@ type EventRow = {
   suspended_at: string | null;
   suspended_reason: string | null;
   email_capture_enabled: boolean;
+  keep_photos: boolean;
+  retention_warned_at: string | null;
 };
 
 type GuestRow = {
@@ -100,6 +102,43 @@ type GuestEmailRow = {
   view_token_hash: string | null;
 };
 
+type MemberRow = { event_id: string; user_id: string; added_by: string | null; created_at: string };
+type InviteRow = {
+  id: string;
+  event_id: string;
+  email: string;
+  token_hash: string;
+  invited_by: string | null;
+  created_at: string;
+  expires_at: string;
+  accepted_at: string | null;
+  accepted_by: string | null;
+};
+type ReportRow = {
+  id: string;
+  photo_id: string;
+  event_id: string;
+  reporter_key: string;
+  reason: "inappropriate" | "privacy" | "other";
+  details: string | null;
+  created_at: string;
+  resolved_at: string | null;
+};
+type ErrorRow = {
+  id: string;
+  fingerprint: string;
+  source: "server" | "client";
+  message: string;
+  path: string | null;
+  digest: string | null;
+  detail: string | null;
+  count: number;
+  first_seen_at: string;
+  last_seen_at: string;
+  notified_at: string | null;
+  resolved_at: string | null;
+};
+
 type SettingRow = { event_id: string; id: string; setting_key: string; setting_value: Json };
 
 type Partialize<T> = { [K in keyof T]?: T[K] };
@@ -144,6 +183,30 @@ export type Database = {
         Update: Partialize<GuestEmailRow>;
         Relationships: [];
       };
+      event_members: {
+        Row: MemberRow;
+        Insert: Partialize<MemberRow> & { event_id: string; user_id: string };
+        Update: Partialize<MemberRow>;
+        Relationships: [];
+      };
+      event_invites: {
+        Row: InviteRow;
+        Insert: Partialize<InviteRow> & { event_id: string; email: string; token_hash: string };
+        Update: Partialize<InviteRow>;
+        Relationships: [];
+      };
+      photo_reports: {
+        Row: ReportRow;
+        Insert: Partialize<ReportRow> & { photo_id: string; event_id: string; reporter_key: string; reason: ReportRow["reason"] };
+        Update: Partialize<ReportRow>;
+        Relationships: [];
+      };
+      app_errors: {
+        Row: ErrorRow;
+        Insert: Partialize<ErrorRow> & { fingerprint: string; source: ErrorRow["source"]; message: string };
+        Update: Partialize<ErrorRow>;
+        Relationships: [];
+      };
       rate_limits: {
         Row: { count: number; key: string; window_start: string };
         Insert: { count?: number; key: string; window_start: string };
@@ -185,6 +248,28 @@ export type Database = {
         Returns: { event_id: string; guests: number; photos: number; pending_review: number; rejected: number; flagged: number }[];
       };
       is_platform_admin: { Args: never; Returns: boolean };
+      is_event_organiser: { Args: { p_event_id: string }; Returns: boolean };
+      accept_event_invite: { Args: { p_token_hash: string; p_user_id: string }; Returns: string };
+      report_photo: {
+        Args: { p_photo_id: string; p_event_id: string; p_reporter_key: string; p_reason: string; p_details: string | null };
+        Returns: { first_report: boolean; report_count: number; hidden: boolean }[];
+      };
+      events_due_for_cleanup: { Args: { p_limit: number }; Returns: { id: string; owner_id: string; title: string }[] };
+      events_due_for_retention_warning: {
+        Args: { p_limit: number };
+        Returns: { id: string; owner_id: string; title: string; delete_after: string }[];
+      };
+      log_app_error: {
+        Args: {
+          p_fingerprint: string;
+          p_source: string;
+          p_message: string;
+          p_path: string | null;
+          p_digest: string | null;
+          p_detail: string | null;
+        };
+        Returns: boolean;
+      };
       admin_overview: { Args: never; Returns: Json };
       admin_events: {
         Args: { p_search: string | null; p_status: string | null; p_limit: number; p_offset: number };
@@ -250,4 +335,6 @@ export type GuestRecord = GuestRow;
 export type PhotoRecord = PhotoRow;
 export type GuestEmailRecord = GuestEmailRow;
 export type ProfileRecord = ProfileRow;
+export type ReportRecord = ReportRow;
+export type ErrorRecord = ErrorRow;
 export type { EventStatus, EventType, GalleryVisibility, ModerationStatus, RevealMode };

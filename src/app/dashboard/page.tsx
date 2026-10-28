@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: "Your events" };
 
 export default async function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
   const sp = await searchParams;
-  const { supabase } = await requireOrganiser();
+  const { supabase, user } = await requireOrganiser();
   const { data } = await supabase.from("events").select("*").order("created_at", { ascending: false });
   const events = (data ?? []) as EventRecord[];
 
@@ -27,6 +27,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   return (
     <div className="flex flex-col gap-8">
       {sp.deleted && <Notice tone="success">Event deleted, along with all of its photos.</Notice>}
+      {sp.password === "updated" && <Notice tone="success">Your new password is saved.</Notice>}
+      {sp.left && <Notice tone="success">You&apos;ve left that event.</Notice>}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h1 className="display-md text-4xl">Your events</h1>
       </div>
@@ -45,7 +47,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {live.map((e) => (
-            <EventCard key={e.id} event={e} cover={covers[events.indexOf(e)]} stats={stats.get(e.id)} />
+            <EventCard key={e.id} event={e} cover={covers[events.indexOf(e)]} stats={stats.get(e.id)} shared={e.owner_id !== user.id} />
           ))}
         </ul>
       )}
@@ -55,7 +57,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           <summary className="cursor-pointer text-lg font-bold">Archived ({archived.length})</summary>
           <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {archived.map((e) => (
-              <EventCard key={e.id} event={e} cover={covers[events.indexOf(e)]} stats={stats.get(e.id)} />
+              <EventCard key={e.id} event={e} cover={covers[events.indexOf(e)]} stats={stats.get(e.id)} shared={e.owner_id !== user.id} />
             ))}
           </ul>
         </details>
@@ -68,7 +70,9 @@ function EventCard({
   event,
   cover,
   stats,
+  shared,
 }: {
+  shared: boolean;
   event: EventRecord;
   cover: string | null;
   stats?: { guests: number; photos: number; pending_review: number };
@@ -88,8 +92,11 @@ function EventCard({
               <span className="display line-clamp-2 text-2xl text-white/90">{event.title}</span>
             </div>
           )}
-          <div className="absolute top-3 left-3">
+          <div className="absolute top-3 left-3 flex gap-1.5">
             <StatusPill status={event.status} />
+            {shared && (
+              <span className="rounded-full bg-card/90 px-2.5 py-0.5 text-sm font-semibold text-ink">Shared with you</span>
+            )}
           </div>
         </div>
         <div className="flex flex-1 flex-col gap-1 p-4">

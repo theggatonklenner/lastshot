@@ -180,7 +180,11 @@ export function JoinPanel({
         />
         <span>
           I&apos;ll only take photos people are happy to share. My photos go to the event organiser and may be shown to
-          other guests. Read the{" "}
+          other guests. I agree to the{" "}
+          <Link href="/terms" className="text-cream underline underline-offset-4" target="_blank">
+            terms
+          </Link>{" "}
+          and{" "}
           <Link href="/privacy" className="text-cream underline underline-offset-4" target="_blank">
             privacy notice
           </Link>

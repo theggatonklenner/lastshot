@@ -30,6 +30,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
               </summary>
               <div className="absolute right-0 mt-2 w-56 rounded-control border border-line bg-card p-2 shadow-lg">
                 <p className="truncate px-2 py-1.5 text-sm text-graphite">{profile?.email}</p>
+                <Link href="/dashboard/account" className="block rounded-lg px-2 py-2 font-semibold hover:bg-ink/5">
+                  Account settings
+                </Link>
                 <form action={signOut}>
                   <button className="w-full rounded-lg px-2 py-2 text-left font-semibold hover:bg-ink/5">Sign out</button>
                 </form>

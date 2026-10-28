@@ -1,4 +1,5 @@
 import "server-only";
+import { isEventOrganiser } from "@/lib/server/organiser";
 import { admin } from "@/lib/supabase/admin";
 import { getUser } from "@/lib/supabase/server";
 import { getGuestForEvent, hasViewPass } from "@/lib/server/guest";
@@ -22,7 +23,8 @@ export type GalleryPhoto = {
 
 export async function resolveGalleryViewer(event: EventRecord, code: string) {
   const [{ user }, guest, pass] = await Promise.all([getUser(), getGuestForEvent(event, code), hasViewPass(event, code)]);
-  const isOwner = !!user && user.id === event.owner_id;
+  // Organisers (owner or co-organiser) can always preview and see everything.
+  const isOwner = await isEventOrganiser(event, user?.id);
   const isGuest = (!!guest && !guest.blocked) || pass;
   return { isOwner, isGuest, access: galleryAccess(event, { isOwner, isGuest }) as GalleryAccess };
 }

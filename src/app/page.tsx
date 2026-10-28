@@ -28,10 +28,18 @@ const controls = [
   ["Downloads", "Let guests save photos, or keep downloads to yourself. Every original is available as a ZIP."],
 ];
 
-export default function Home() {
+export default async function Home({ searchParams }: PageProps<"/">) {
+  const sp = await searchParams;
   return (
     <div className="flex min-h-dvh flex-col">
       <SiteHeader />
+      {sp.account === "deleted" && (
+        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+          <p role="status" className="rounded-control bg-ok-soft px-4 py-3 text-ok">
+            Your account and its events have been deleted.
+          </p>
+        </div>
+      )}
       <main className="flex-1">
         <section className="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pt-6 pb-20 sm:px-6 lg:grid-cols-[1.1fr_1fr] lg:pt-14">
           <div className="flex flex-col items-start gap-7">

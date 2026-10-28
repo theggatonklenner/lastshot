@@ -35,6 +35,9 @@ export function SiteFooter() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <Logo className="scale-90 origin-left" />
         <div className="flex gap-5">
+          <Link href="/terms" className="hover:text-ink">
+            Terms
+          </Link>
           <Link href="/privacy" className="hover:text-ink">
             Privacy
           </Link>

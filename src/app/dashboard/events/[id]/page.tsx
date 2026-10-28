@@ -3,15 +3,17 @@ import QRCode from "qrcode";
 import { requireOwnedEvent } from "@/lib/server/organiser";
 import { signPaths } from "@/lib/server/media";
 import { guestUrl } from "@/lib/env";
-import { galleryRevealed } from "@/lib/rules";
+import { galleryRevealed, retentionUntil } from "@/lib/rules";
 import { formatDateTime, timeAgo } from "@/lib/format";
 import { Countdown } from "@/components/countdown";
 import { CopyButton } from "@/components/copy-button";
 import { EmptyState, LinkButton, Notice, Panel } from "@/components/ui";
 import { LifecycleActions } from "./lifecycle";
+import { KeepPhotos } from "./keep-photos";
 
-export default async function EventOverview({ params }: PageProps<"/dashboard/events/[id]">) {
+export default async function EventOverview({ params, searchParams }: PageProps<"/dashboard/events/[id]">) {
   const { id } = await params;
+  const sp = await searchParams;
   const { supabase, event } = await requireOwnedEvent(id);
 
   const [{ data: statsRows }, { data: guests }, { data: recent }] = await Promise.all([
@@ -38,6 +40,7 @@ export default async function EventOverview({ params }: PageProps<"/dashboard/ev
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
       <div className="flex flex-col gap-6">
+        {sp.joined && <Notice tone="success">You&apos;re now a co-organiser of this event.</Notice>}
         {event.status === "draft" && (
           <Notice tone="info">
             This event is a draft. Guests can&apos;t join until you publish it.
@@ -59,6 +62,16 @@ export default async function EventOverview({ params }: PageProps<"/dashboard/ev
             <h2 className="text-lg font-bold">Event controls</h2>
             <GalleryState event={event} revealed={revealed} />
             <LifecycleActions event={event} revealed={revealed} />
+            {(event.status === "ended" || event.status === "archived") && (
+              <div className="border-t border-line pt-2">
+                <KeepPhotos
+                  eventId={event.id}
+                  keep={event.keep_photos}
+                  deleteAfter={retentionUntil(event)?.toISOString() ?? null}
+                  ended
+                />
+              </div>
+            )}
           </div>
         </Panel>
 

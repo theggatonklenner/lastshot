@@ -5,6 +5,7 @@ import { downloadAsZips, downloadSingle } from "@/lib/client/zip";
 import { guestToken } from "@/lib/client/upload-queue";
 import { formatDateTime } from "@/lib/format";
 import { Lightbox } from "@/components/lightbox";
+import { ReportDialog } from "@/components/guest/report-dialog";
 import { cx } from "@/components/ui";
 
 type Photo = {
@@ -46,6 +47,8 @@ export function GalleryView({
   const [viewer, setViewer] = useState<number | null>(null);
   const [zip, setZip] = useState<string | null>(null);
   const [fresh, setFresh] = useState<Set<string>>(new Set());
+  const [reporting, setReporting] = useState<string | null>(null);
+  const [reported, setReported] = useState<Set<string>>(new Set());
   const sentinel = useRef<HTMLDivElement>(null);
 
   const fetchPage = useCallback(
@@ -222,15 +225,48 @@ export function GalleryView({
           onClose={() => setViewer(null)}
           actions={(item) => {
             const p = photos.find((x) => x.id === item.id);
-            if (!downloads || !p?.originalUrl) return null;
             return (
-              <button
-                className="h-10 rounded-full bg-cream/10 px-4 font-semibold hover:bg-cream/20"
-                onClick={() => downloadSingle(p.originalUrl!, `${title.replace(/[^\w]+/g, "-")}-${p.id.slice(0, 6)}.jpg`).catch(() => setError("That photo didn't download."))}
-              >
-                Download
-              </button>
+              <>
+                {reported.has(item.id) ? (
+                  <span className="px-2 text-sm text-cream-dim">Reported</span>
+                ) : (
+                  <button
+                    className="h-10 rounded-full bg-cream/10 px-4 font-semibold hover:bg-cream/20"
+                    onClick={() => setReporting(item.id)}
+                  >
+                    Report
+                  </button>
+                )}
+                {downloads && p?.originalUrl && (
+                  <button
+                    className="h-10 rounded-full bg-cream/10 px-4 font-semibold hover:bg-cream/20"
+                    onClick={() =>
+                      downloadSingle(p.originalUrl!, `${title.replace(/[^\w]+/g, "-")}-${p.id.slice(0, 6)}.jpg`).catch(() =>
+                        setError("That photo didn't download."),
+                      )
+                    }
+                  >
+                    Download
+                  </button>
+                )}
+              </>
             );
+          }}
+        />
+      )}
+      {reporting && (
+        <ReportDialog
+          code={code}
+          photoId={reporting}
+          onClose={() => setReporting(null)}
+          onReported={(hidden) => {
+            const id = reporting;
+            setReported((r) => new Set(r).add(id));
+            if (hidden) {
+              // Enough reports to hide it: take it out of this view too.
+              setViewer(null);
+              setPhotos((list) => list.filter((x) => x.id !== id));
+            }
           }}
         />
       )}

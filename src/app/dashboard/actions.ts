@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getUser } from "@/lib/supabase/server";
 import { EventInput, firstIssue } from "@/lib/event-schema";
-import { removeObjects } from "@/lib/server/media";
+import { deleteEventsCompletely } from "@/lib/server/cleanup";
 import type { EventRecord } from "@/lib/database.types";
 
 export type ActionResult<T = undefined> = { ok: true; data?: T } | { ok: false; error: string };
@@ -173,6 +173,18 @@ export async function moderatePhotos(
     if (change.flagged === false) patch.flag_reason = null;
     const { error } = await supabase.from("photos").update(patch).eq("event_id", eventId).in("id", valid.data);
     if (error) throw new Error(error.message);
+    if (change.flagged === false || change.moderation_status === "approved") {
+      // The organiser has looked at these; close their open reports.
+      await supabase
+        .from("photo_reports")
+        .update({ resolved_at: new Date().toISOString() })
+        .eq("event_id", eventId)
+        .in("photo_id", valid.data)
+        .is("resolved_at", null);
+      if (change.moderation_status === "approved") {
+        await supabase.from("photos").update({ flagged: false, flag_reason: null }).eq("event_id", eventId).in("id", valid.data);
+      }
+    }
     refresh(eventId);
     return { ok: true };
   } catch (e) {
@@ -182,24 +194,14 @@ export async function moderatePhotos(
 
 export async function deleteEvent(id: string, confirmTitle: string): Promise<ActionResult> {
   try {
-    const { supabase, event } = await ownedEvent(id);
+    const { user, event } = await ownedEvent(id);
+    if (event.owner_id !== user.id) {
+      return { ok: false, error: "Only the person who created this event can delete it." };
+    }
     if (confirmTitle.trim() !== event.title.trim()) {
       return { ok: false, error: "Type the event name exactly to confirm." };
     }
-    const { data: photos } = await supabase
-      .from("photos")
-      .select("storage_path, display_path, thumbnail_path")
-      .eq("event_id", id);
-    const { error } = await supabase.from("events").delete().eq("id", id);
-    if (error) throw new Error("The event wasn't deleted. Try again.");
-    try {
-      await removeObjects([
-        event.cover_image_path,
-        ...(photos ?? []).flatMap((p) => [p.storage_path, p.display_path, p.thumbnail_path]),
-      ]);
-    } catch (e) {
-      console.error("orphaned files after event delete", e);
-    }
+    await deleteEventsCompletely([id]);
   } catch (e) {
     return fail(e);
   }
@@ -240,6 +242,18 @@ export async function removeGuestEmail(eventId: string, emailId: string): Promis
   try {
     const { supabase } = await ownedEvent(eventId);
     const { error } = await supabase.from("guest_emails").delete().eq("id", emailId).eq("event_id", eventId);
+    if (error) throw new Error(error.message);
+    refresh(eventId);
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+export async function setKeepPhotos(eventId: string, keep: boolean): Promise<ActionResult> {
+  try {
+    const { supabase } = await ownedEvent(eventId);
+    const { error } = await supabase.from("events").update({ keep_photos: keep }).eq("id", eventId);
     if (error) throw new Error(error.message);
     refresh(eventId);
     return { ok: true };

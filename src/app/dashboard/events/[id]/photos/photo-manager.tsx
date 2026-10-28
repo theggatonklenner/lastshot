@@ -18,6 +18,13 @@ export type ManagedPhoto = {
   status: "pending" | "approved" | "rejected";
   flagged: boolean;
   source: string;
+  reports: { reason: string; details: string | null }[];
+};
+
+const REPORT_LABEL: Record<string, string> = {
+  privacy: "someone in it wants it removed",
+  inappropriate: "inappropriate",
+  other: "other",
 };
 
 type Filter = "all" | "pending" | "approved" | "rejected" | "flagged";
@@ -29,8 +36,10 @@ export function PhotoManager({
   photos,
   guests,
   initialGuest,
+  initialFilter,
   requireApproval,
 }: {
+  initialFilter?: "flagged";
   eventId: string;
   title: string;
   timezone: string;
@@ -40,7 +49,9 @@ export function PhotoManager({
   requireApproval: boolean;
 }) {
   const router = useRouter();
-  const [filter, setFilter] = useState<Filter>(photos.some((p) => p.status === "pending") ? "pending" : "all");
+  const [filter, setFilter] = useState<Filter>(
+    initialFilter ?? (photos.some((p) => p.status === "pending") ? "pending" : "all"),
+  );
   const [guest, setGuest] = useState(initialGuest);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -214,6 +225,14 @@ export function PhotoManager({
         <Button size="sm" variant="secondary" disabled={!selected.size || pending} onClick={() => act(ids, { flagged: true }, "Flagged.")}>
           Flag
         </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={!selected.size || pending}
+          onClick={() => act(ids, { flagged: false }, "Flags and reports cleared.")}
+        >
+          Clear flag
+        </Button>
         <Button size="sm" variant="secondary" disabled={!selected.size || !!progress} onClick={() => download(ids)}>
           Download
         </Button>
@@ -238,7 +257,13 @@ export function PhotoManager({
               <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
                 {p.status === "pending" && <span className="rounded bg-cobalt px-1.5 text-xs font-semibold text-white">To review</span>}
                 {p.status === "rejected" && <span className="rounded bg-ink px-1.5 text-xs font-semibold text-paper">Rejected</span>}
-                {p.flagged && <span className="rounded bg-signal px-1.5 text-xs font-semibold text-white">Flagged</span>}
+                {p.reports.length > 0 ? (
+                  <span className="rounded bg-signal px-1.5 text-xs font-semibold text-white">
+                    Reported{p.reports.length > 1 ? ` ×${p.reports.length}` : ""}
+                  </span>
+                ) : (
+                  p.flagged && <span className="rounded bg-signal px-1.5 text-xs font-semibold text-white">Flagged</span>
+                )}
               </div>
               <div className="px-2.5 py-2 text-sm">
                 <p className="truncate font-semibold">{p.guestName}</p>
@@ -255,7 +280,11 @@ export function PhotoManager({
             id: p.id,
             src: p.displayUrl,
             alt: `Photo by ${p.guestName}`,
-            caption: `${p.guestName}, ${formatDateTime(p.uploadedAt, timezone)}`,
+            caption: p.reports.length
+              ? `Reported: ${p.reports
+                  .map((r) => REPORT_LABEL[r.reason] + (r.details ? ` ("${r.details}")` : ""))
+                  .join("; ")}. Taken by ${p.guestName}, ${formatDateTime(p.uploadedAt, timezone)}`
+              : `${p.guestName}, ${formatDateTime(p.uploadedAt, timezone)}`,
           }))}
           index={viewer}
           onIndex={setViewer}

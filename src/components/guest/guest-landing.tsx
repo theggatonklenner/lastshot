@@ -65,6 +65,7 @@ export function GuestLanding({
           previewCameraHref={previewCameraHref}
           emailCapture={event.email_capture_enabled && event.gallery_visibility !== "private"}
           smsCapture={event.addon_sms && event.gallery_visibility !== "private"}
+          questions={event.addon_export ? (event.lead_questions ?? []) : []}
         />
       </div>
     </GuestShell>

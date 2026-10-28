@@ -82,7 +82,7 @@ export default async function AdminEventPage({ params }: PageProps<"/admin/event
           code={event.code}
           plan={event.plan}
           extraGuests={event.extra_guests}
-          addons={{ frame: event.addon_frame, branding: event.addon_branding, storage: event.addon_storage, storage1y: event.addon_storage_1y, sms: event.addon_sms, link: event.addon_link }}
+          addons={{ frame: event.addon_frame, branding: event.addon_branding, storage: event.addon_storage, storage1y: event.addon_storage_1y, sms: event.addon_sms, link: event.addon_link, export: event.addon_export }}
           suspendedAt={event.suspended_at}
           suspendedReason={event.suspended_reason}
         />

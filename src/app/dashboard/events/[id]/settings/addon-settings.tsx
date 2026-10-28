@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useRef, useState, useTransition } from "react";
-import { updateFrame } from "@/app/dashboard/actions";
+import { saveLeadQuestions, updateFrame } from "@/app/dashboard/actions";
+import type { LeadQuestion } from "@/lib/database.types";
+import { MAX_LEAD_QUESTIONS } from "@/lib/lead-questions";
 import { Button, Field, Input, Notice, Panel, cx } from "@/components/ui";
 
 type FrameColor = "white" | "cream" | "black";
@@ -19,7 +21,11 @@ export function AddonSettings({
   frame,
   logoUrl,
   coverUrl,
+  hasExport = false,
+  questions = [],
 }: {
+  hasExport?: boolean;
+  questions?: LeadQuestion[];
   eventId: string;
   hasFrame: boolean;
   hasBranding: boolean;
@@ -50,6 +56,16 @@ export function AddonSettings({
             <LogoEditor endpoint={`/api/events/${eventId}/logo`} initialUrl={logoUrl} />
           ) : (
             <Locked title="Your branding" body="Show your logo instead of Lastshot's on guest pages, signs and the slideshow." href={plan} />
+          )}
+          <div className="border-t border-line" />
+          {hasExport ? (
+            <LeadQuestionsEditor eventId={eventId} initial={questions} />
+          ) : (
+            <Locked
+              title="Guest data export and questions"
+              body="Ask guests up to 3 questions when they join, then download everything as a spreadsheet."
+              href={plan}
+            />
           )}
         </div>
       </div>
@@ -226,6 +242,93 @@ export function LogoEditor({
         </div>
       </div>
       {error && <Notice tone="error">{error}</Notice>}
+    </div>
+  );
+}
+
+function LeadQuestionsEditor({ eventId, initial }: { eventId: string; initial: LeadQuestion[] }) {
+  const [rows, setRows] = useState<LeadQuestion[]>(initial);
+  const [msg, setMsg] = useState<{ tone: "error" | "success"; text: string } | null>(null);
+  const [pending, start] = useTransition();
+  const set = (i: number, patch: Partial<LeadQuestion>) => setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
+
+  function save() {
+    setMsg(null);
+    start(async () => {
+      const res = await saveLeadQuestions(eventId, rows);
+      setMsg(res.ok ? { tone: "success", text: "Questions saved. New guests will see them when they join." } : { tone: "error", text: res.error });
+    });
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold">Questions when guests join</p>
+          <p className="text-sm text-graphite">
+            Up to {MAX_LEAD_QUESTIONS}, like &quot;Company&quot; or &quot;Want a demo?&quot;. Answers go in the guest
+            spreadsheet.
+          </p>
+        </div>
+        <a
+          href={`/api/events/${eventId}/export`}
+          download
+          className="rounded-[10px] border border-line px-3 py-1.5 text-sm font-semibold hover:border-ink/30"
+        >
+          Download guest data
+        </a>
+      </div>
+      {rows.map((q, i) => (
+        <div key={q.id} className="flex flex-col gap-2 rounded-control border border-line p-3">
+          <Input
+            aria-label={`Question ${i + 1}`}
+            value={q.label}
+            maxLength={80}
+            placeholder={i === 0 ? "Company" : "Want us to get in touch?"}
+            onChange={(e) => set(i, { label: e.target.value })}
+          />
+          <div className="flex flex-wrap items-center gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <span className="font-semibold">Answer</span>
+              <select
+                value={q.kind}
+                onChange={(e) => set(i, { kind: e.target.value as LeadQuestion["kind"] })}
+                className="rounded-[8px] border border-line bg-card px-2 py-1"
+              >
+                <option value="text">Short text</option>
+                <option value="yesno">Yes or no</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={q.required} onChange={(e) => set(i, { required: e.target.checked })} className="size-4 accent-cobalt" />
+              Required
+            </label>
+            <button
+              type="button"
+              onClick={() => setRows(rows.filter((_, j) => j !== i))}
+              className="ml-auto font-semibold text-graphite hover:text-ink"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ))}
+      <div className="flex flex-wrap gap-2">
+        {rows.length < MAX_LEAD_QUESTIONS && (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setRows([...rows, { id: `q${Date.now().toString(36)}`, label: "", kind: "text", required: false }])}
+          >
+            Add a question
+          </Button>
+        )}
+        <Button type="button" size="sm" onClick={save} pending={pending}>
+          Save questions
+        </Button>
+      </div>
+      {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
     </div>
   );
 }

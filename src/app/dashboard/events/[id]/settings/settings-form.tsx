@@ -33,6 +33,7 @@ function toInput(e: EventRecord): EventInputType {
     email_capture_enabled: e.email_capture_enabled,
     theme: e.theme as EventInputType["theme"],
     accent_color: e.accent_color,
+    film_looks: e.film_looks ?? [],
   };
 }
 

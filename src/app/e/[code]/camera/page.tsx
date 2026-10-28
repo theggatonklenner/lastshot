@@ -34,6 +34,7 @@ export default async function CameraPage({ params }: PageProps<"/e/[code]/camera
       mysteryWheel={mysteryUnlocked(event) ? wheelFor(event.mystery_prompt, guest.id) : null}
       initialUsed={guest.photos_submitted}
       allowLibrary={event.camera_roll_uploads_enabled}
+      looks={event.film_looks ?? []}
       exitHref={`/e/${code}`}
       doneHref={`/e/${code}/done`}
     />

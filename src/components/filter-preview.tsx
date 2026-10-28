@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { develop, drawFrame, renderLook, type PhotoFrame } from "@/lib/client/develop";
 import { decodeFile } from "@/lib/client/image";
-import { resolveTheme } from "@/lib/themes";
+import { resolveTheme, withLook } from "@/lib/themes";
 import { cx } from "@/components/ui";
 
 /** Draws a warm party scene (string lights, people, a table) to show the film looks on. */
@@ -89,11 +89,14 @@ export function FilterPreview({
   accent,
   dateStamp,
   frame,
+  look = null,
 }: {
   themeId: string;
   accent: string;
   dateStamp: boolean;
   frame?: PhotoFrame | null;
+  /** A film look guests can pick, to preview instead of the event's style. */
+  look?: string | null;
 }) {
   const [url, setUrl] = useState<string | null>(null);
   const [own, setOwn] = useState<ImageBitmap | HTMLImageElement | null>(null);
@@ -107,10 +110,10 @@ export function FilterPreview({
   const [live, setLive] = useState(false);
   const [liveError, setLiveError] = useState<string | null>(null);
   const liveCanvas = useRef<HTMLCanvasElement>(null);
-  const settings = useRef({ themeId, accent, dateStamp, frameKey, showOriginal });
+  const settings = useRef({ themeId, accent, dateStamp, frameKey, showOriginal, look });
   useEffect(() => {
-    settings.current = { themeId, accent, dateStamp, frameKey, showOriginal };
-  }, [themeId, accent, dateStamp, frameKey, showOriginal]);
+    settings.current = { themeId, accent, dateStamp, frameKey, showOriginal, look };
+  }, [themeId, accent, dateStamp, frameKey, showOriginal, look]);
 
   useEffect(() => {
     if (!live) return;
@@ -143,7 +146,7 @@ export function FilterPreview({
         renderLook(
           video,
           {
-            theme: resolveTheme(st.themeId, st.accent),
+            theme: withLook(resolveTheme(st.themeId, st.accent), st.look),
             dateStamp: st.dateStamp,
             frame: st.frameKey ? JSON.parse(st.frameKey) : null,
             aspect: 3 / 4,
@@ -184,7 +187,7 @@ export function FilterPreview({
         const out = fr ? drawFrame(c, fr) : c;
         blob = await new Promise<Blob>((r) => out.toBlob((b) => r(b!), "image/jpeg", 0.85));
       } else {
-        blob = await develop(src, { theme: resolveTheme(themeId, accent), dateStamp, frame: fr, aspect: 3 / 4, when: new Date() });
+        blob = await develop(src, { theme: withLook(resolveTheme(themeId, accent), look), dateStamp, frame: fr, aspect: 3 / 4, when: new Date() });
       }
       if (cancelled) return;
       made = URL.createObjectURL(blob);
@@ -194,7 +197,7 @@ export function FilterPreview({
       cancelled = true;
       if (made) URL.revokeObjectURL(made);
     };
-  }, [themeId, accent, dateStamp, frameKey, own, showOriginal]);
+  }, [themeId, accent, dateStamp, frameKey, own, showOriginal, look]);
 
   return (
     <div className="flex flex-col gap-3 rounded-control border border-line bg-card p-4 sm:flex-row sm:items-start sm:gap-5">

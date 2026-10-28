@@ -3,7 +3,8 @@
 import { useState } from "react";
 import type { EventInputType } from "@/lib/event-schema";
 import { EVENT_TYPES } from "@/lib/rules";
-import { THEMES, type ThemeId } from "@/lib/themes";
+import { FILM_LOOKS, THEMES, type ThemeId } from "@/lib/themes";
+import type { FilmLookId } from "@/lib/database.types";
 import { isoToLocalInput, localInputToIso } from "@/lib/format";
 import { Choice, Field, Input, Select, Textarea, Toggle, cx } from "@/components/ui";
 import { FilterPreview } from "@/components/filter-preview";
@@ -84,6 +85,13 @@ export function BasicsFields({ value, set, errors }: Props) {
 const SHOT_PRESETS = [8, 12, 24, 27];
 
 export function RollFields({ value, set, errors, frame }: Props & { frame?: PhotoFrame | null }) {
+  const [previewLook, setPreviewLook] = useState<FilmLookId | null>(null);
+  const looks = value.film_looks ?? [];
+  const toggleLook = (id: FilmLookId) => {
+    const next = looks.includes(id) ? looks.filter((l) => l !== id) : [...looks, id];
+    set("film_looks", next);
+    setPreviewLook(next.includes(id) ? id : null);
+  };
   return (
     <div className="flex flex-col gap-8">
       <Field
@@ -258,7 +266,59 @@ export function RollFields({ value, set, errors, frame }: Props & { frame?: Phot
         />
       </div>
 
-      <FilterPreview themeId={value.theme} accent={value.accent_color} dateStamp={value.date_stamp_enabled} frame={frame} />
+      <div className="flex flex-col gap-3">
+        <Toggle
+          checked={looks.length > 0}
+          onChange={(on) => {
+            set("film_looks", on ? ["classic", "bw", "warm", "faded"] : []);
+            setPreviewLook(null);
+          }}
+          label="Let guests pick a film look"
+          description="Guests choose a look for each shot from the ones you allow, like black and white or golden hour. Your camera style is always one of the options."
+        />
+        {looks.length > 0 && (
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Film looks guests can pick">
+              {FILM_LOOKS.map((l) => {
+                const on = looks.includes(l.id);
+                return (
+                  <button
+                    key={l.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => toggleLook(l.id)}
+                    className={cx(
+                      "rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors",
+                      on ? "border-cobalt bg-cobalt text-white" : "border-line text-graphite hover:border-ink/40",
+                    )}
+                  >
+                    {l.name}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-sm text-graphite">
+              Tap a look to turn it on or off. The preview below shows the last one you turned on.
+              {previewLook && (
+                <>
+                  {" "}
+                  <button type="button" onClick={() => setPreviewLook(null)} className="font-semibold text-cobalt hover:underline">
+                    Show my camera style
+                  </button>
+                </>
+              )}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <FilterPreview
+        themeId={value.theme}
+        accent={value.accent_color}
+        dateStamp={value.date_stamp_enabled}
+        frame={frame}
+        look={previewLook}
+      />
     </div>
   );
 }

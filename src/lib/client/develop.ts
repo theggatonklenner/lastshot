@@ -41,6 +41,12 @@ function applyLook(ctx: CanvasRenderingContext2D, w: number, h: number, theme: C
       v = v + 6; // brighter, like a flash snapshot
     } else if (theme.filter === "vintage") {
       v = 26 + i * 0.86; // faded blacks, soft highlights
+    } else if (theme.filter === "bw") {
+      v = (i - 128) * 1.22 + 128; // punchy black and white
+    } else if (theme.filter === "warm" || theme.filter === "cool") {
+      v = (i - 128) * 1.05 + 132;
+    } else if (theme.filter === "faded") {
+      v = 40 + i * 0.78; // lifted blacks, matte look
     }
     curve[i] = clamp(v);
   }
@@ -66,6 +72,24 @@ function applyLook(ctx: CanvasRenderingContext2D, w: number, h: number, theme: C
         r = r * 0.62 + sr * 0.38;
         g = g * 0.62 + sg * 0.38;
         b = b * 0.62 + sb * 0.38;
+      } else if (theme.filter === "bw") {
+        const l = 0.3 * r + 0.59 * g + 0.11 * b;
+        r = g = b = l;
+      } else if (theme.filter === "warm") {
+        const l = 0.299 * r + 0.587 * g + 0.114 * b;
+        r = l + (r - l) * 1.2 + 16;
+        g = l + (g - l) * 1.2 + 6;
+        b = l + (b - l) * 1.2 - 14;
+      } else if (theme.filter === "cool") {
+        const l = 0.299 * r + 0.587 * g + 0.114 * b;
+        r = l + (r - l) * 1.05 - 10;
+        g = l + (g - l) * 1.05 + 2;
+        b = l + (b - l) * 1.05 + 16;
+      } else if (theme.filter === "faded") {
+        const l = 0.299 * r + 0.587 * g + 0.114 * b;
+        r = l + (r - l) * 0.72 + 4;
+        g = l + (g - l) * 0.72 + 2;
+        b = l + (b - l) * 0.72 + 6;
       }
 
       if (vig > 0) {

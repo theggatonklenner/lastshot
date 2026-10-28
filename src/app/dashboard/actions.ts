@@ -11,6 +11,8 @@ import { getUser } from "@/lib/supabase/server";
 import { EventInput, firstIssue } from "@/lib/event-schema";
 import { deleteEventsCompletely } from "@/lib/server/cleanup";
 import { sendSecondEventCode } from "@/lib/server/second-event";
+import { LeadQuestionsInput } from "@/lib/lead-questions";
+import { admin } from "@/lib/supabase/admin";
 import type { EventRecord } from "@/lib/database.types";
 
 export type ActionResult<T = undefined> = { ok: true; data?: T } | { ok: false; error: string };
@@ -273,6 +275,22 @@ export async function updateFrame(eventId: string, input: unknown): Promise<Acti
       .eq("id", eventId);
     if (error) throw new Error(error.message);
     refresh(eventId);
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+/** Questions guests answer when joining (Guest data export add-on). */
+export async function saveLeadQuestions(id: string, input: unknown): Promise<ActionResult> {
+  try {
+    const { event } = await ownedEvent(id);
+    if (!event.addon_export) return { ok: false, error: "Add the Guest data export add-on first." };
+    const parsed = LeadQuestionsInput.safeParse(input);
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the questions." };
+    const { error } = await admin().from("events").update({ lead_questions: parsed.data }).eq("id", id);
+    if (error) throw new Error(error.message);
+    refresh(id);
     return { ok: true };
   } catch (e) {
     return fail(e);

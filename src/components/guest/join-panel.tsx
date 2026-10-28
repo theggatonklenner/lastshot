@@ -11,6 +11,7 @@ import { SmsCapture } from "@/components/guest/sms-capture";
 import { AddToHomeHint } from "@/components/guest/add-to-home";
 import { normalisePhone } from "@/lib/phone";
 import { MARKETING_CONSENT } from "@/lib/marketing";
+import type { LeadQuestion } from "@/lib/database.types";
 
 type Joined = { displayName: string | null; shotsUsed: number; shotsLimit: number } | null;
 
@@ -25,7 +26,9 @@ export function JoinPanel({
   previewCameraHref,
   emailCapture,
   smsCapture,
+  questions = [],
 }: {
+  questions?: LeadQuestion[];
   emailCapture?: boolean;
   smsCapture?: boolean;
   code: string;
@@ -44,6 +47,7 @@ export function JoinPanel({
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [marketing, setMarketing] = useState(false);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -76,6 +80,11 @@ export function JoinPanel({
       setError("Tick the box to agree to the event rules.");
       return;
     }
+    const missing = questions.find((q) => q.required && !answers[q.id]?.trim());
+    if (missing) {
+      setError(`Answer "${missing.label}" to join.`);
+      return;
+    }
     if (email.trim() && !EMAIL_RE.test(email.trim())) {
       setError("That email address doesn't look right. Fix it or leave it blank.");
       return;
@@ -95,7 +104,7 @@ export function JoinPanel({
       const res = await fetch(`/api/e/${code}/join`, {
         method: "POST",
         headers: { "content-type": "application/json", ...(guestToken(code) ? { "x-lastshot-guest": guestToken(code)! } : {}) },
-        body: JSON.stringify({ displayName: name || null, accessCode: accessCode || null, consent: true }),
+        body: JSON.stringify({ displayName: name || null, accessCode: accessCode || null, consent: true, answers }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message ?? "Couldn't join. Try again.");
@@ -173,6 +182,46 @@ export function JoinPanel({
           className="h-13 rounded-[14px] border border-cream/20 bg-body-2 px-4 text-lg text-cream placeholder:text-cream/40 focus:border-flash focus:outline-none"
         />
       </label>
+      {questions.map((q) =>
+        q.kind === "yesno" ? (
+          <fieldset key={q.id} className="flex flex-col gap-2">
+            <legend className="mb-2 font-semibold">
+              {q.label}
+              {!q.required && " (optional)"}
+            </legend>
+            <div className="flex gap-2">
+              {["Yes", "No"].map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={answers[q.id] === v}
+                  onClick={() => setAnswers({ ...answers, [q.id]: answers[q.id] === v ? "" : v })}
+                  className={cx(
+                    "h-12 flex-1 rounded-[14px] border text-lg font-semibold",
+                    answers[q.id] === v ? "border-flash bg-flash text-body" : "border-cream/20 bg-body-2 text-cream",
+                  )}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        ) : (
+          <label key={q.id} className="flex flex-col gap-2">
+            <span className="font-semibold">
+              {q.label}
+              {!q.required && " (optional)"}
+            </span>
+            <input
+              value={answers[q.id] ?? ""}
+              onChange={(e) => setAnswers({ ...answers, [q.id]: e.target.value })}
+              maxLength={200}
+              required={q.required}
+              className="h-13 rounded-[14px] border border-cream/20 bg-body-2 px-4 text-lg text-cream placeholder:text-cream/40 focus:border-flash focus:outline-none"
+            />
+          </label>
+        ),
+      )}
       {emailCapture && (
         <label className="flex flex-col gap-2">
           <span className="font-semibold">Email me the photos (optional)</span>

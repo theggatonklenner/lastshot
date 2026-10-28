@@ -51,6 +51,29 @@ export default async function GuestsPage({ params }: PageProps<"/dashboard/event
 
   return (
     <div className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-panel border border-line bg-card px-4 py-3">
+        <p className="text-[15px] text-graphite">
+          {event.addon_export
+            ? "Download every guest with their photo count, contacts and answers to your questions."
+            : "Want a spreadsheet of your guests, with answers to your own questions? Add Guest data export."}
+        </p>
+        {event.addon_export ? (
+          <a
+            href={`/api/events/${event.id}/export`}
+            download
+            className="rounded-[10px] border border-line px-3 py-1.5 text-sm font-semibold hover:border-ink/30"
+          >
+            Download spreadsheet
+          </a>
+        ) : (
+          <Link
+            href={`/dashboard/events/${event.id}/upgrade?o_plan=${event.plan}&o_addons=export#addons`}
+            className="text-sm font-semibold text-cobalt hover:underline"
+          >
+            Add it for $9
+          </Link>
+        )}
+      </div>
       {!guests?.length ? (
         <EmptyState title="Nobody has joined yet">
           Guests appear here when they open the camera. Each phone gets its own anonymous camera ID.

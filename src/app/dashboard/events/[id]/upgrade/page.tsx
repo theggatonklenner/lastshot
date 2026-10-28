@@ -155,7 +155,11 @@ export default async function UpgradePage({ params, searchParams }: PageProps<"/
             {ownedAddons.map((a) => (
               <li key={a.id} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
                 <span className="font-semibold">{a.name}</span>
-                {a.id === "link" ? (
+                {a.id === "export" ? (
+                  <Link href={`/dashboard/events/${event.id}/guests`} className="text-sm font-semibold text-cobalt hover:underline">
+                    Download guest data
+                  </Link>
+                ) : a.id === "link" ? (
                   <Link href={`/dashboard/events/${event.id}/share#custom-link`} className="text-sm font-semibold text-cobalt hover:underline">
                     {event.custom_slug ? `lastshot.app/${event.custom_slug}` : "Choose your link"}
                   </Link>

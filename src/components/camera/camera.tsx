@@ -1,5 +1,7 @@
 "use client";
 
+import { filmLook, withLook } from "@/lib/themes";
+import type { FilmLookId } from "@/lib/database.types";
 import { MysteryWheel } from "./mystery-wheel";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -29,6 +31,8 @@ export type CameraProps = {
   mysteryWheel?: { slices: string[]; winner: number } | null;
   initialUsed: number;
   allowLibrary: boolean;
+  /** Film looks guests can pick per shot (empty: the event's style only). */
+  looks?: FilmLookId[];
   demo?: boolean;
   exitHref: string;
   doneHref: string;
@@ -37,7 +41,11 @@ export type CameraProps = {
 const noopSubscribe = () => () => {};
 
 export function Camera(props: CameraProps) {
-  const { code, title, theme, dateStamp, frame, initialUsed, allowLibrary, demo, exitHref, doneHref } = props;
+  const { code, title, theme: eventTheme, dateStamp, frame, initialUsed, allowLibrary, demo, exitHref, doneHref } = props;
+  const looks = props.looks ?? [];
+  const [look, setLook] = useState<FilmLookId | null>(null);
+  const theme = withLook(eventTheme, look);
+  const lookCss = look ? (filmLook(look)?.css ?? "none") : "none";
   const [limit, setLimit] = useState(props.limit);
   const [retakesLeft, setRetakesLeft] = useState(props.retakesLeft ?? 0);
   const [mystery, setMystery] = useState<string | null>(props.mysteryPrompt ?? null);
@@ -269,6 +277,7 @@ export function Camera(props: CameraProps) {
               muted
               autoPlay
               className={cx("absolute inset-0 size-full object-cover", facing === "user" && "-scale-x-100", phase !== "live" && "opacity-0")}
+              style={lookCss !== "none" ? { filter: lookCss } : undefined}
             />
             {/* film frame marks */}
             <div className="pointer-events-none absolute inset-3 z-[2] rounded-[6px] border border-cream/25" />
@@ -290,6 +299,31 @@ export function Camera(props: CameraProps) {
           </div>
         </div>
       </div>
+
+      {looks.length > 0 && remaining > 0 && (
+        <div className="mx-4 mt-3 -mb-1 overflow-x-auto" role="radiogroup" aria-label="Film look">
+          <div className="flex min-w-max gap-2">
+            {[null, ...looks].map((id) => {
+              const on = look === id;
+              return (
+                <button
+                  key={id ?? "event"}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setLook(id)}
+                  className={cx(
+                    "rounded-full border px-3 py-1.5 text-sm font-semibold whitespace-nowrap",
+                    on ? "border-flash bg-flash text-body" : "border-cream/25 text-cream-dim hover:text-cream",
+                  )}
+                >
+                  {id ? filmLook(id)?.name : "Event style"}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {mystery && remaining > 0 && wheel && !spun ? (
         <button

@@ -68,6 +68,8 @@ export default async function SettingsPage({ params }: PageProps<"/dashboard/eve
         frame={{ text: event.frame_text, subtext: event.frame_subtext, color: event.frame_color }}
         logoUrl={logoUrl}
         coverUrl={coverUrl}
+        hasExport={event.addon_export}
+        questions={event.lead_questions ?? []}
       />
       <TeamPanel eventId={event.id} isOwner={isOwner} people={people} invites={pendingInvites} />
       <SettingsForm event={event} coverUrl={coverUrl} coverOriginalUrl={coverOriginalUrl} isOwner={isOwner} />

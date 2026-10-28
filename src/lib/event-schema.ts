@@ -45,6 +45,7 @@ export const EventInput = z
     email_capture_enabled: z.boolean(),
     theme: z.enum(["classic", "vintage", "minimal", "custom"]),
     accent_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
+    film_looks: z.array(z.enum(["classic", "vintage", "bw", "warm", "cool", "faded", "true"])).max(7).default([]),
   })
   .refine((v) => v.reveal_mode !== "scheduled" || !!v.reveal_at, {
     message: "Pick when the gallery opens.",
@@ -82,6 +83,7 @@ export const EVENT_DEFAULTS: EventInputType = {
   email_capture_enabled: true,
   theme: "classic",
   accent_color: "#2546D8",
+  film_looks: [],
 };
 
 export function firstIssue(error: z.ZodError): string {

@@ -205,7 +205,7 @@ export async function setEventPlan(eventId: string, plan: string, extraGuests: n
   }
 }
 
-const AddonFlags = z.object({ frame: z.boolean(), branding: z.boolean(), storage: z.boolean(), storage1y: z.boolean(), sms: z.boolean(), link: z.boolean() });
+const AddonFlags = z.object({ frame: z.boolean(), branding: z.boolean(), storage: z.boolean(), storage1y: z.boolean(), sms: z.boolean(), link: z.boolean(), export: z.boolean() });
 
 /** Turns add-ons on or off for an event without payment. */
 export async function setEventAddons(eventId: string, flags: unknown): Promise<Result> {
@@ -215,7 +215,7 @@ export async function setEventAddons(eventId: string, flags: unknown): Promise<R
     const f = AddonFlags.parse(flags);
     const { error } = await admin()
       .from("events")
-      .update({ addon_frame: f.frame, addon_branding: f.branding, addon_storage: f.storage, addon_storage_1y: f.storage1y, addon_sms: f.sms, addon_link: f.link })
+      .update({ addon_frame: f.frame, addon_branding: f.branding, addon_storage: f.storage, addon_storage_1y: f.storage1y, addon_sms: f.sms, addon_link: f.link, addon_export: f.export })
       .eq("id", eventId);
     if (error) throw new Error(error.message);
     revalidatePath("/admin", "layout");

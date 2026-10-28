@@ -64,9 +64,15 @@ type EventRow = {
   mystery_prompt: string | null;
   addon_link: boolean;
   custom_slug: string | null;
+  film_looks: FilmLookId[];
+  addon_export: boolean;
+  lead_questions: LeadQuestion[];
 };
 
-export type Addon = "frame" | "branding" | "storage" | "storage1y" | "sms" | "link";
+export type FilmLookId = "classic" | "vintage" | "bw" | "warm" | "cool" | "faded" | "true";
+export type LeadQuestion = { id: string; label: string; kind: "text" | "yesno"; required: boolean };
+
+export type Addon = "frame" | "branding" | "storage" | "storage1y" | "sms" | "link" | "export";
 
 type SmsRow = {
   id: string;
@@ -164,6 +170,7 @@ type GuestRow = {
   photos_submitted: number;
   user_id: string | null;
   retakes_used: number;
+  lead_answers: Record<string, string>;
 };
 
 type PhotoRow = {

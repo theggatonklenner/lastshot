@@ -22,7 +22,7 @@ export function AdminEventControls({
   suspendedReason: string | null;
   plan: string;
   extraGuests: number;
-  addons: Record<"frame" | "branding" | "storage" | "storage1y" | "sms" | "link", boolean>;
+  addons: Record<"frame" | "branding" | "storage" | "storage1y" | "sms" | "link" | "export", boolean>;
 }) {
   const [reason, setReason] = useState("");
   const [planChoice, setPlanChoice] = useState(plan);

@@ -144,6 +144,12 @@ export const ADDONS: AddonInfo[] = [
     blurb: "A short, easy link like lastshot.app/sam-and-alex for your signs and invites.",
     detail: "Choose the link after paying. The usual QR code keeps working too.",
   },
+  {
+    id: "export",
+    name: "Guest data export",
+    blurb: "Download a spreadsheet of guests, their photo counts, contacts who opted in, and answers to up to 3 questions you ask when they join.",
+    detail: "Great for brand activations, venues and corporate events.",
+  },
 ];
 
 type AddonFlags = {
@@ -153,6 +159,7 @@ type AddonFlags = {
   addon_storage_1y?: boolean;
   addon_sms: boolean;
   addon_link?: boolean;
+  addon_export?: boolean;
 };
 
 /**
@@ -173,6 +180,8 @@ export function addonPrice(addon: Addon, e: { plan: Plan; addon_storage_1y?: boo
       return e.plan === "unlimited" ? 5900 : e.plan === "big" ? 2900 : e.plan === "party" ? 1500 : 900;
     case "link":
       return 900;
+    case "export":
+      return 900;
   }
 }
 
@@ -189,6 +198,7 @@ export function hasAddon(e: AddonFlags, addon: Addon) {
     storage1y: !!e.addon_storage_1y || e.addon_storage,
     sms: e.addon_sms,
     link: !!e.addon_link,
+    export: !!e.addon_export,
   }[addon];
 }
 

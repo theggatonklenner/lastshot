@@ -97,6 +97,20 @@ export default async function EventOverview({ params, searchParams }: PageProps<
             <h2 className="text-lg font-bold">Event controls</h2>
             <GalleryState event={event} revealed={revealed} />
             <LifecycleActions event={event} revealed={revealed} />
+            {(event.status === "ended" || event.status === "archived") && stats.photos > 0 && (
+              <a
+                href={`/e/${event.code}/wrapped`}
+                target="_blank"
+                rel="noopener"
+                className="flex items-center justify-between gap-3 rounded-control bg-body px-4 py-3 text-cream hover:bg-body-2"
+              >
+                <span>
+                  <span className="block text-xs font-bold tracking-[0.15em] text-flash uppercase">Event Wrapped</span>
+                  <span className="font-semibold">See the night in numbers and share the card</span>
+                </span>
+                <span aria-hidden>→</span>
+              </a>
+            )}
             {(event.status === "ended" || event.status === "archived") && (
               <div className="border-t border-line pt-2">
                 <KeepPhotos

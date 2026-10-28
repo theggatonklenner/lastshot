@@ -39,6 +39,7 @@ export type CameraProps = {
 };
 
 const noopSubscribe = () => () => {};
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export function Camera(props: CameraProps) {
   const { code, title, theme: eventTheme, dateStamp, frame, initialUsed, allowLibrary, demo, exitHref, doneHref } = props;
@@ -79,6 +80,13 @@ export function Camera(props: CameraProps) {
   const [processing, setProcessing] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
   const [demoShots, setDemoShots] = useState<string[]>([]);
+  // Flash (phone torch on the back camera, a white screen on the front), selfie timer and the last-shot moment.
+  const [flashOn, setFlashOn] = useState(false);
+  const [torchOk, setTorchOk] = useState(false);
+  const [screenFlash, setScreenFlash] = useState(false);
+  const [timerOn, setTimerOn] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const [lastMoment, setLastMoment] = useState(false);
 
   const queue = useUploadQueue({ code, initialUsed, demo });
   const remaining = Math.max(0, limit - queue.used - queue.items.length);
@@ -160,6 +168,8 @@ export function Camera(props: CameraProps) {
         }
         setFacing(want);
         setPhase("live");
+        const caps = stream.getVideoTracks()[0]?.getCapabilities?.() as { torch?: boolean } | undefined;
+        setTorchOk(!!caps?.torch);
         const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
         setCanFlip(devices.filter((d) => d.kind === "videoinput").length > 1);
       } catch (e) {
@@ -193,26 +203,75 @@ export function Camera(props: CameraProps) {
   useEffect(() => {
     if (!rollFinished || demo) return;
     stop();
-    const t = setTimeout(() => router.push(doneHref), 900);
+    // Give the last-shot moment time to play before moving on.
+    const t = setTimeout(() => router.push(doneHref), lastMoment ? 3200 : 900);
     return () => clearTimeout(t);
-  }, [rollFinished, demo, doneHref, router, stop]);
+  }, [rollFinished, demo, doneHref, router, stop, lastMoment]);
+
+  // In the demo (no redirect), let the last-shot moment fade after a few seconds.
+  useEffect(() => {
+    if (!lastMoment || !demo) return;
+    const t = setTimeout(() => setLastMoment(false), 3200);
+    return () => clearTimeout(t);
+  }, [lastMoment, demo]);
+
+  async function setTorch(on: boolean) {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return false;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: on } as MediaTrackConstraintSet] });
+      return true;
+    } catch {
+      return false;
+    }
+  }
 
   async function shoot() {
     const v = videoRef.current;
     if (!v || phase !== "live" || processing || remaining <= 0) return;
     setProcessing(true);
-    setFlash((n) => n + 1);
-    if ("vibrate" in navigator) navigator.vibrate?.(12);
+    const isLast = remaining === 1;
+    let torchUsed = false;
     try {
+      if (timerOn) {
+        for (let n = 3; n >= 1; n--) {
+          setCountdown(n);
+          navigator.vibrate?.(8);
+          await sleep(1000);
+        }
+        setCountdown(null);
+      }
+      if (flashOn) {
+        if (facing === "user") {
+          // Front camera: light the face with a bright white screen.
+          setScreenFlash(true);
+          await sleep(380);
+        } else if (torchOk) {
+          torchUsed = await setTorch(true);
+          // Give the camera a moment to adjust to the light.
+          if (torchUsed) await sleep(550);
+        }
+      }
+      setFlash((n) => n + 1);
+      if ("vibrate" in navigator) navigator.vibrate?.(12);
       // Let the flash paint before the heavy pixel work.
       await new Promise((r) => requestAnimationFrame(() => r(null)));
       const aspect = v.clientWidth && v.clientHeight ? v.clientWidth / v.clientHeight : undefined;
-      const blob = await develop(v, { theme, dateStamp, frame, mirror: facing === "user", aspect });
+      const blob = await develop(v, { theme, dateStamp, frame, mirror: facing === "user", aspect, lastShot: isLast });
+      if (torchUsed) await setTorch(false);
+      setScreenFlash(false);
       if (demo) setDemoShots((s) => [...s, URL.createObjectURL(blob)]);
+      if (isLast) {
+        setLastMoment(true);
+        navigator.vibrate?.([40, 60, 40, 60, 120]);
+      }
       await queue.enqueue(blob, "camera");
     } catch (e) {
       setLocalError(e instanceof Error ? e.message : "That shot didn't work. Try again.");
     } finally {
+      if (torchUsed) await setTorch(false);
+      setScreenFlash(false);
+      setCountdown(null);
       setProcessing(false);
     }
   }
@@ -223,7 +282,9 @@ export function Camera(props: CameraProps) {
     setLocalError(null);
     try {
       const img = await decodeFile(file);
-      const blob = await develop(img, { theme, dateStamp, frame, when: new Date(file.lastModified || Date.now()) });
+      const isLast = remaining === 1;
+      const blob = await develop(img, { theme, dateStamp, frame, when: new Date(file.lastModified || Date.now()), lastShot: isLast });
+      if (isLast) setLastMoment(true);
       if (demo) setDemoShots((s) => [...s, URL.createObjectURL(blob)]);
       await queue.enqueue(blob, source);
     } catch {
@@ -285,7 +346,7 @@ export function Camera(props: CameraProps) {
               {counterText(limit - remaining + 1 > limit ? limit : limit - remaining + 1)}A
             </span>
 
-            {(phase !== "live" || remaining <= 0) && (
+            {(phase !== "live" || remaining <= 0) && !lastMoment && (
               <ViewfinderMessage
                 phase={phase}
                 remaining={remaining}
@@ -296,6 +357,59 @@ export function Camera(props: CameraProps) {
               />
             )}
             {flash > 0 && <div key={flash} className="flash-bloom pointer-events-none absolute inset-0 z-[3] bg-white" />}
+
+            {phase === "live" && remaining > 0 && (
+              <div className="absolute top-3 right-3 z-[4] flex gap-2">
+                {(torchOk || facing === "user") && (
+                  <button
+                    type="button"
+                    onClick={() => setFlashOn(!flashOn)}
+                    aria-pressed={flashOn}
+                    aria-label={flashOn ? "Flash on" : "Flash off"}
+                    className={cx(
+                      "flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold backdrop-blur",
+                      flashOn ? "bg-flash text-body" : "bg-black/45 text-cream",
+                    )}
+                  >
+                    <BoltIcon />
+                    {flashOn ? "On" : "Off"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setTimerOn(!timerOn)}
+                  aria-pressed={timerOn}
+                  aria-label={timerOn ? "3 second timer on" : "Timer off"}
+                  className={cx(
+                    "flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold backdrop-blur",
+                    timerOn ? "bg-flash text-body" : "bg-black/45 text-cream",
+                  )}
+                >
+                  <TimerIcon />
+                  {timerOn ? "3s" : "Off"}
+                </button>
+              </div>
+            )}
+
+            {countdown !== null && (
+              <div className="pointer-events-none absolute inset-0 z-[4] flex items-center justify-center" aria-live="assertive">
+                <span key={countdown} className="countdown-pop display text-[140px] leading-none text-cream drop-shadow-[0_4px_24px_rgba(0,0,0,0.6)]">
+                  {countdown}
+                </span>
+              </div>
+            )}
+
+            {lastMoment && (
+              <div className="last-shot-moment pointer-events-none absolute inset-0 z-[5] flex flex-col items-center justify-center gap-3 text-center">
+                <span className="rounded-[8px] bg-[linear-gradient(120deg,#b8892b,#f6dc8a_45%,#d4a537)] px-4 py-1.5 text-sm font-extrabold tracking-[0.2em] text-body uppercase shadow-lg">
+                  Last shot
+                </span>
+                <p className="display px-6 text-[clamp(30px,9vw,44px)] text-cream drop-shadow-[0_2px_12px_rgba(0,0,0,0.7)]">
+                  That&apos;s the roll
+                </p>
+                <p className="text-cream/85 drop-shadow">Your last one has a gold border.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -343,6 +457,7 @@ export function Camera(props: CameraProps) {
           <span className="text-[15px] leading-snug font-semibold">{mystery}</span>
         </div>
       ) : null}
+      {screenFlash && <div className="pointer-events-none fixed inset-0 z-[60] bg-white" aria-hidden />}
       {wheelOpen && wheel && (
         <MysteryWheel
           slices={wheel.slices}
@@ -579,5 +694,22 @@ function LibraryButton({ onClick, disabled }: { onClick: () => void; disabled?: 
         <path d="m21 16-5-5-8 8" />
       </svg>
     </button>
+  );
+}
+
+function BoltIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-4" fill="currentColor" aria-hidden>
+      <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" />
+    </svg>
+  );
+}
+
+function TimerIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+      <circle cx="12" cy="13" r="8" />
+      <path d="M12 9v4l2.5 2.5M9 2h6" />
+    </svg>
   );
 }

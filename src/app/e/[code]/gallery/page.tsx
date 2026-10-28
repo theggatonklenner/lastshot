@@ -72,6 +72,14 @@ export default async function GalleryPage({ params }: PageProps<"/e/[code]/galle
             {event.title}
           </Link>
           <h1 className="display text-[clamp(36px,10vw,56px)]">The roll</h1>
+          {(event.status === "ended" || event.status === "archived") && (
+            <Link
+              href={`/e/${code}/wrapped`}
+              className="self-start rounded-full bg-flash px-4 py-1.5 text-sm font-bold text-body"
+            >
+              See the night, wrapped
+            </Link>
+          )}
         </div>
         <GalleryView
           code={code}

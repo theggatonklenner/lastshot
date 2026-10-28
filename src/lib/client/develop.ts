@@ -190,6 +190,8 @@ export function drawFrame(photo: HTMLCanvasElement, frame: PhotoFrame) {
 
 export type DevelopOptions = {
   theme: CameraTheme;
+  /** The guest's final shot: gold border and a "Last shot" stamp. */
+  lastShot?: boolean;
   /** Custom photo frame add-on. */
   frame?: PhotoFrame | null;
   dateStamp: boolean;
@@ -241,6 +243,7 @@ export async function develop(src: Source, opts: DevelopOptions): Promise<Blob> 
       }
       finalCanvas = drawFrame(canvas, opts.frame);
     }
+    if (opts.lastShot) finalCanvas = drawLastShot(finalCanvas);
     const blob = await canvasToJpeg(finalCanvas, 0.84);
     if (blob.size <= MAX_BYTES) return blob;
     side = Math.round(side * 0.75);
@@ -296,4 +299,52 @@ export function renderLook(
   }
   into.getContext("2d")!.drawImage(out, 0, 0);
   return into;
+}
+
+/** Gold border and a "LAST SHOT" stamp around the guest's final photo. */
+export function drawLastShot(photo: HTMLCanvasElement) {
+  const unit = Math.min(photo.width, photo.height);
+  const b = Math.round(unit * 0.032);
+  const out = document.createElement("canvas");
+  out.width = photo.width + b * 2;
+  out.height = photo.height + b * 2;
+  const g = out.getContext("2d")!;
+  const gold = g.createLinearGradient(0, 0, out.width, out.height);
+  gold.addColorStop(0, "#b8892b");
+  gold.addColorStop(0.35, "#f6dc8a");
+  gold.addColorStop(0.6, "#d4a537");
+  gold.addColorStop(1, "#8f6a1f");
+  g.fillStyle = gold;
+  g.fillRect(0, 0, out.width, out.height);
+  g.drawImage(photo, b, b);
+  // Thin dark line between the gold and the photo, like a mount.
+  g.strokeStyle = "rgba(22,23,26,0.55)";
+  g.lineWidth = Math.max(1, Math.round(unit * 0.003));
+  g.strokeRect(b, b, photo.width, photo.height);
+
+  // Stamp in the top-left corner of the photo.
+  const size = Math.round(unit * 0.045);
+  g.font = `800 ${size}px "Archivo Variable", system-ui, sans-serif`;
+  const text = "LAST SHOT";
+  const pad = Math.round(size * 0.45);
+  const w = g.measureText(text).width + pad * 2;
+  const h = size + pad * 1.2;
+  const x = b + Math.round(unit * 0.04);
+  const y = b + Math.round(unit * 0.04);
+  g.save();
+  g.translate(x + w / 2, y + h / 2);
+  g.rotate((-4 * Math.PI) / 180);
+  g.fillStyle = gold;
+  g.shadowColor = "rgba(0,0,0,0.35)";
+  g.shadowBlur = size * 0.4;
+  g.beginPath();
+  g.roundRect(-w / 2, -h / 2, w, h, size * 0.25);
+  g.fill();
+  g.shadowColor = "transparent";
+  g.fillStyle = "#16171a";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillText(text, 0, size * 0.04);
+  g.restore();
+  return out;
 }

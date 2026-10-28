@@ -69,6 +69,7 @@ type EventRow = {
   addon_setup: boolean;
   starts_at: string | null;
   lock_until_start: boolean;
+  wrapped_sent_at: string | null;
   lead_questions: LeadQuestion[];
 };
 
@@ -485,6 +486,7 @@ export type Database = {
         Returns: { photo_id: string; storage_path: string | null; display_path: string | null; thumbnail_path: string | null; shots_used: number }[];
       };
       add_guest_phone: { Args: { p_guest_id: string; p_phone: string }; Returns: SmsRow };
+      event_wrapped: { Args: { p_event_id: string }; Returns: Json };
       claim_gallery_push: {
         Args: { p_event_id: string | null; p_limit: number };
         Returns: { id: string; event_id: string; endpoint: string; p256dh: string; auth: string; event_code: string; event_title: string }[];

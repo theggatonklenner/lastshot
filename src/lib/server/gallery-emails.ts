@@ -1,5 +1,6 @@
 import "server-only";
 import { sendDueGalleryPush } from "@/lib/server/push";
+import { sendDueWrapped } from "@/lib/server/wrapped";
 import { admin } from "@/lib/supabase/admin";
 import { siteUrl } from "@/lib/env";
 import { createHmac } from "node:crypto";
@@ -41,6 +42,7 @@ export async function sendDueGalleryEmails(opts: { eventId?: string; limit?: num
     console.error("gallery push failed", e);
     return { claimed: 0, sent: 0, failed: 0 };
   });
+  if (!opts.eventId) await sendDueWrapped().catch((e) => console.error("wrapped email failed", e));
   const email = await sendDueEmailsOnly(opts);
   return { ...email, sms, push };
 }

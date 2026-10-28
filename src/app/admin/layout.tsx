@@ -17,8 +17,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <Logo tone="cream" />
               <span className="rounded-full bg-flash px-2.5 py-0.5 text-sm font-bold text-body">Admin</span>
             </Link>
-            <Link href="/dashboard" className="rounded-[10px] px-3 py-2 text-[15px] font-semibold text-cream-dim hover:text-cream">
-              My events
+            <Link
+              href="/dashboard"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full bg-cream px-4 text-[15px] font-bold text-body transition-[filter] hover:brightness-95"
+            >
+              <span aria-hidden>&larr;</span>
+              <span className="hidden sm:inline">Back to dashboard</span>
+              <span className="sm:hidden">Dashboard</span>
             </Link>
           </div>
           <AdminTabs />

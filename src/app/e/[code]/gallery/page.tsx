@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { loadGuestContext } from "@/lib/server/guest-page";
+import { galleryAccess } from "@/lib/rules";
 import { loadGalleryPage } from "@/lib/server/gallery";
 import { formatDateTime, formatEventDate } from "@/lib/format";
 import { GuestMessage, GuestShell, guestButton, guestSecondary } from "@/components/guest/guest-shell";
@@ -72,6 +73,13 @@ export default async function GalleryPage({ params }: PageProps<"/e/[code]/galle
             {event.title}
           </Link>
           <h1 className="display text-[clamp(36px,10vw,56px)]">The roll</h1>
+          {isOwner && !galleryAccess(event, { isOwner: false, isGuest: true }).allowed && (
+            <p className="rounded-[14px] border border-flash/40 bg-body-2 px-4 py-3 text-[15px] text-cream-dim">
+              <span className="font-semibold text-flash">Only you can see these.</span> You&apos;re the organiser, so you
+              always see the photos. Guests see &quot;Still developing&quot; until you{" "}
+              {event.reveal_mode === "scheduled" ? "reach the reveal time" : "press Reveal on your dashboard"}.
+            </p>
+          )}
           {(event.status === "ended" || event.status === "archived") && (
             <Link
               href={`/e/${code}/wrapped`}

@@ -35,15 +35,42 @@ export function MysteryWheel({
     button.current?.focus();
   }, []);
 
+  // Which slice is under the pointer (at the top) for a given rotation.
+  const underPointer = (a: number) => Math.floor((((-a % 360) + 360) % 360) / slice) % n;
+  const current = underPointer(angle);
+  const raf = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(raf.current), []);
+
   function spin() {
     if (phase !== "ready") return;
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
     // Land the winner's slice under the pointer at the top, with a little wobble inside the slice.
     const wobble = (Math.random() - 0.5) * slice * 0.5;
-    const target = 360 * (reduce ? 1 : 6) - ((winner + 0.5) * slice + wobble);
+    const target = 360 * (reduce ? 1 : 10) - ((winner + 0.5) * slice + wobble);
+    const duration = reduce ? 600 : 4600;
     setPhase("spinning");
-    setAngle(target);
     navigator.vibrate?.(20);
+    const t0 = performance.now();
+    let last = underPointer(0);
+    const frame = (now: number) => {
+      const t = Math.min(1, (now - t0) / duration);
+      // Fast start, long slow finish.
+      const eased = 1 - Math.pow(1 - t, 4);
+      const a = target * eased;
+      setAngle(a);
+      const idx = underPointer(a);
+      if (idx !== last) {
+        last = idx;
+        // A light tick as each slice passes the pointer, once it's slow enough to feel.
+        if (t > 0.55) navigator.vibrate?.(4);
+      }
+      if (t < 1) raf.current = requestAnimationFrame(frame);
+      else {
+        setPhase("done");
+        navigator.vibrate?.([30, 40, 30]);
+      }
+    };
+    raf.current = requestAnimationFrame(frame);
   }
 
   const point = (deg: number, r: number) => {
@@ -73,14 +100,7 @@ export function MysteryWheel({
         <svg
           viewBox={`0 0 ${R * 2} ${R * 2}`}
           className="block w-full drop-shadow-[0_10px_30px_rgba(0,0,0,0.5)]"
-          style={{
-            transform: `rotate(${angle}deg)`,
-            transition: phase === "spinning" ? "transform 4.2s cubic-bezier(0.12, 0.62, 0.08, 1)" : undefined,
-          }}
-          onTransitionEnd={() => {
-            setPhase("done");
-            navigator.vibrate?.([30, 40, 30]);
-          }}
+          style={{ transform: `rotate(${angle}deg)` }}
           aria-hidden
         >
           {slices.map((s, i) => {
@@ -117,8 +137,15 @@ export function MysteryWheel({
         </svg>
       </div>
 
-      <div className="flex min-h-36 w-full max-w-sm flex-col items-center gap-4 text-center" aria-live="polite">
-        {phase === "done" ? (
+      <div className="flex min-h-40 w-full max-w-sm flex-col items-center gap-4 text-center" aria-live="polite">
+        {phase === "spinning" ? (
+          <>
+            <p className="flex min-h-[3.5em] items-center text-[20px] leading-snug font-bold text-cream" aria-hidden>
+              {slices[current]}
+            </p>
+            <p className="text-cream-dim">Spinning…</p>
+          </>
+        ) : phase === "done" ? (
           <>
             <p className="develop-in text-[22px] leading-snug font-bold text-flash">{slices[winner]}</p>
             <button
@@ -136,10 +163,9 @@ export function MysteryWheel({
               ref={button}
               type="button"
               onClick={spin}
-              disabled={phase === "spinning"}
               className="w-full rounded-full bg-flash px-6 py-3.5 text-lg font-bold text-body disabled:opacity-60"
             >
-              {phase === "spinning" ? "Spinning…" : "Spin"}
+              Spin
             </button>
           </>
         )}

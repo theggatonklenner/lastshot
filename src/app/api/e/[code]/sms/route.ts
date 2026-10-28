@@ -21,6 +21,8 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/e/[code]/sm
   const parsed = Body.safeParse(await req.json().catch(() => null));
   const phone = parsed.success ? normalisePhone(parsed.data.phone) : null;
   if (!phone) return jsonError(400, "invalid_phone", "Enter a mobile number, like 0412 345 678.");
+  // Texts go through an Australian provider, so only Australian mobiles for now.
+  if (!phone.startsWith("+614")) return jsonError(400, "invalid_phone", "Text alerts only work with Australian mobiles. Leave an email instead.");
 
   const { error } = await admin().rpc("add_guest_phone", { p_guest_id: guest.id, p_phone: phone });
   if (error) {

@@ -29,7 +29,7 @@ npm run dev
 | `EMAIL_FROM` | server only | Sender, e.g. `Lastshot <photos@yourdomain.com>`. The domain must be verified in Resend |
 | `EMAIL_REPLY_TO` | server only | Optional reply-to address |
 | `CRON_SECRET` | server only | Optional. Locks the email scheduler endpoint (see below) |
-| `CLICKSEND_USERNAME`, `CLICKSEND_API_KEY` | server only | ClickSend account for the SMS alerts add-on |
+| `TEXTO_API_KEY` | server only | Texto API key for the SMS alerts add-on (ClickSend's `CLICKSEND_USERNAME` + `CLICKSEND_API_KEY` also work as a fallback) |
 | `SMS_FROM` | server only | Optional sender name or number for texts |
 | `STRIPE_SECRET_KEY` | server only | Stripe secret key. `sk_test_...` for testing, `sk_live_...` for real payments |
 | `STRIPE_WEBHOOK_SECRET` | server only | Signing secret of the Stripe webhook for `/api/stripe/webhook` |
@@ -162,7 +162,7 @@ One-off extras per event, bought through Stripe from the plan page (`kind = 'add
 - **Custom photo frame** ($19): organisers set two lines of text and a colour (Settings > Add-ons). The guest's camera draws the border onto each shot (`drawFrame()` in `src/lib/client/develop.ts`), so it applies to photos taken after it's set up.
 - **Your branding** ($29): organisers upload a logo (`/api/events/<id>/logo`, re-encoded as PNG). Guest pages show it instead of the "Made with Lastshot" card, and the slideshow and printable signs use it.
 - **Keep photos for 1 year** ($12) or **2 years** ($19, or 25% off when extending from 1 year): `event_retention_until()` uses 365 or 730 days instead of 180. The old free "keep forever" switch is gone; `keep_photos` is admin-only.
-- **SMS alerts** ($9 to $59 by plan): guests leave a mobile number (`/api/e/<code>/sms`, `add_guest_phone()`), and when the gallery is ready they get one text with a private link, sent through ClickSend alongside the emails (`sendDueGallerySms()`). Texts are capped at the event's guest limit (1,000 on Unlimited). Text links work as gallery passes exactly like email links.
+- **SMS alerts** ($9 to $59 by plan): guests leave a mobile number (`/api/e/<code>/sms`, `add_guest_phone()`), and when the gallery is ready they get one text with a private link, sent through Texto (texto.com.au; Australian mobiles only) alongside the emails (`sendDueGallerySms()`). Texts are capped at the event's guest limit (1,000 on Unlimited). Text links work as gallery passes exactly like email links.
 
 ### New-event setup
 

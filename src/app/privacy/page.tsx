@@ -24,7 +24,7 @@ const sections: { title: string; body: React.ReactNode }[] = [
         </p>
         <p>
           If the event offers text alerts and you leave a mobile number, we use it only to send you one text message
-          with a private link when the photos are ready. Texts are sent through our SMS provider, ClickSend. The event
+          with a private link when the photos are ready. Texts are sent through our Australian SMS provider, Texto. The event
           organiser can see the number, every text has an opt-out link, and the number is deleted with the event.
         </p>
       </>

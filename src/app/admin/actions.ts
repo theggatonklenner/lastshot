@@ -231,12 +231,13 @@ export async function sendTestSms(phone: string): Promise<Result<{ to: string }>
     await assertAdmin();
     const to = normalisePhone(phone);
     if (!to) throw new Error("Enter a mobile number, like 0412 345 678.");
-    if (!smsConfigured()) throw new Error("Add CLICKSEND_USERNAME and CLICKSEND_API_KEY in Vercel, then redeploy.");
+    if (!to.startsWith("+614")) throw new Error("Only Australian mobiles can get texts.");
+    if (!smsConfigured()) throw new Error("Add TEXTO_API_KEY in Vercel, then redeploy.");
     const res = await sendSmsBatch([
       { to, body: galleryReadySms("Lastshot test event", `${siteUrl()}/try`), ref: `test-${Date.now()}` },
     ]);
     if (!res.ok) throw new Error(res.error);
-    if (res.accepted.size === 0) throw new Error(`ClickSend didn't accept it: ${[...res.errors.values()][0] ?? "unknown reason"}`);
+    if (res.accepted.size === 0) throw new Error(`It wasn't accepted: ${[...res.errors.values()][0] ?? "unknown reason"}`);
     return { ok: true, data: { to: formatPhone(to) } };
   } catch (e) {
     return fail(e);

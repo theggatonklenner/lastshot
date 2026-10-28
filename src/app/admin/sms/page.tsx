@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { requireAdmin } from "@/lib/server/admin-auth";
 import { admin } from "@/lib/supabase/admin";
-import { smsBalance, smsConfigured } from "@/lib/server/sms";
+import { smsBalance, smsConfigured, smsProvider } from "@/lib/server/sms";
 import { formatPhone } from "@/lib/phone";
 import { formatDateTime } from "@/lib/format";
 import { Panel } from "@/components/ui";
@@ -14,6 +14,8 @@ export default async function AdminSms() {
   await requireAdmin();
   const db = admin();
   const configured = smsConfigured();
+  const provider = smsProvider();
+  const providerName = provider === "texto" ? "Texto" : provider === "clicksend" ? "ClickSend" : "Texto";
   const [balance, { count: total }, { count: sent }, { count: waiting }, { data: failed }, { data: recent }, { count: events }] =
     await Promise.all([
       smsBalance(),
@@ -40,27 +42,27 @@ export default async function AdminSms() {
 
   const checks: [string, "ok" | "missing" | "optional", string][] = [
     [
-      "CLICKSEND_USERNAME and CLICKSEND_API_KEY",
+      "TEXTO_API_KEY",
       configured ? "ok" : "missing",
       configured
-        ? "Set. Texts are being sent."
+        ? `Set. Texts are sent through ${providerName}.`
         : "Not set, so texts aren't sent yet. Guests can still leave numbers, and their texts go out once this is set.",
     ],
     [
-      "ClickSend account",
-      !configured ? "missing" : balance ? "ok" : "missing",
+      `${providerName} account`,
+      !configured ? "missing" : balance ? "ok" : "optional",
       !configured
-        ? "Connect ClickSend to see your balance."
+        ? `Connect ${providerName} to see your balance.`
         : balance
-          ? `Connected. Balance: ${balance.currency} ${Number(balance.balance).toFixed(2)}.`
-          : "Couldn't sign in to ClickSend. Check the username and API key.",
+          ? `Connected. Balance: ${balance.text}.`
+          : `Couldn't read the balance. Send a test text below to check the connection.`,
     ],
     [
       "SMS_FROM",
       process.env.SMS_FROM ? "ok" : "optional",
       process.env.SMS_FROM
         ? `Texts come from "${process.env.SMS_FROM}".`
-        : "Optional. Without it, texts come from ClickSend's shared number.",
+        : `Optional. Without it, texts come from your ${providerName} account's default number.`,
     ],
   ];
   const dot = { ok: "bg-ok", missing: "bg-signal", optional: "bg-line" };

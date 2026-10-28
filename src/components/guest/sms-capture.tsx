@@ -21,8 +21,13 @@ export function SmsCapture({ code, alreadyOpen }: { code: string; alreadyOpen?: 
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!normalisePhone(phone)) {
+    const e164 = normalisePhone(phone);
+    if (!e164) {
       setError("Enter a mobile number, like 0412 345 678.");
+      return;
+    }
+    if (!e164.startsWith("+614")) {
+      setError("Text alerts only work with Australian mobiles. Leave an email instead.");
       return;
     }
     setBusy(true);
@@ -75,7 +80,7 @@ export function SmsCapture({ code, alreadyOpen }: { code: string; alreadyOpen?: 
           {error}
         </p>
       ) : (
-        <p className="text-sm text-cream-dim">One text with a private link. Nothing else.</p>
+        <p className="text-sm text-cream-dim">Australian mobiles only. One text with a private link, nothing else.</p>
       )}
     </form>
   );

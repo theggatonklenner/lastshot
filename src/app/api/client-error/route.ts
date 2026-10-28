@@ -10,6 +10,28 @@ const Body = z.object({
   digest: z.string().max(100).optional().nullable(),
 });
 
+/**
+ * Errors caused by in-app browsers (Snapchat, Instagram, Facebook, TikTok...)
+ * and extensions injecting their own scripts, not by Lastshot. They're dropped
+ * so they don't trigger alerts.
+ */
+const NOISE = [
+  /SCDynimacBridge/i,
+  /webkit\.messageHandlers/i,
+  /instantSearchSDKJSBridgeClearHighlight/i,
+  /__gCrWeb/i,
+  /WeixinJSBridge/i,
+  /zaloJSV2/i,
+  /^Script error\.?$/i,
+  /ResizeObserver loop/i,
+  /chrome-extension:|moz-extension:|safari-extension:/i,
+];
+
+export function isBrowserNoise(message: string, stack?: string | null) {
+  const text = `${message}\n${stack ?? ""}`;
+  return NOISE.some((re) => re.test(text));
+}
+
 /** Browser errors reported by the error screens and the page-level listener. */
 export async function POST(req: NextRequest) {
   if (!(await rateLimit(`client-error:${hashIp(await clientIp())}`, 10, 60))) {
@@ -17,6 +39,7 @@ export async function POST(req: NextRequest) {
   }
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return new Response(null, { status: 204 });
+  if (isBrowserNoise(parsed.data.message, parsed.data.stack)) return new Response(null, { status: 204 });
   await recordError({
     source: "client",
     message: parsed.data.message,
